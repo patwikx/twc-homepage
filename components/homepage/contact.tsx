@@ -1,10 +1,7 @@
 "use client"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Phone, Mail, MapPin, Clock, MessageCircle, Calendar } from "lucide-react"
+import { Phone, Mail, MapPin, Clock, MessageCircle } from "lucide-react"
 import { useScrollAnimation } from "@/hooks/use-scroll-animation"
 
 const contactInfo = [
@@ -40,8 +37,8 @@ const contactInfo = [
 
 export default function ContactSection() {
   const { ref: headerRef, isVisible: headerVisible } = useScrollAnimation<HTMLDivElement>({ threshold: 0.2 })
-  const { ref: formRef, isVisible: formVisible } = useScrollAnimation<HTMLDivElement>({ threshold: 0.1 })
   const { ref: contactRef, isVisible: contactVisible } = useScrollAnimation<HTMLDivElement>({ threshold: 0.1 })
+  const { ref: resortsRef, isVisible: resortsVisible } = useScrollAnimation<HTMLDivElement>({ threshold: 0.1 })
   const { ref: servicesRef, isVisible: servicesVisible } = useScrollAnimation<HTMLDivElement>({ threshold: 0.1 })
 
   return (
@@ -60,166 +57,87 @@ export default function ContactSection() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-16">
-          {/* Booking Form */}
-          <Card
-            ref={formRef}
-            className={`bg-card p-8 transition-all duration-1000 ease-out ${
-              formVisible ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-8"
-            }`}
-          >
-            <div className="flex items-center gap-3 mb-6">
+        <div
+          ref={contactRef}
+          className={`mb-16 transition-all duration-1000 ease-out ${
+            contactVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+          }`}
+        >
+          <Card className="bg-card p-8 max-w-4xl mx-auto">
+            <div className="flex items-center justify-center gap-3 mb-6">
               <div className="p-3 bg-primary/10 rounded-full">
-                <Calendar className="h-6 w-6 text-primary" />
+                <MessageCircle className="h-6 w-6 text-primary" />
               </div>
-              <h3 className="text-2xl font-bold text-card-foreground">Quick Booking</h3>
+              <h3 className="text-2xl font-bold text-card-foreground">Get in Touch</h3>
             </div>
-            <form className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+              <div className="flex flex-col items-center gap-3">
+                <Phone className="h-8 w-8 text-primary" />
                 <div>
-                  <label className="block text-sm font-medium text-card-foreground mb-2">Check-in Date</label>
-                  <Input type="date" className="bg-background" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-card-foreground mb-2">Check-out Date</label>
-                  <Input type="date" className="bg-background" />
+                  <p className="font-medium text-card-foreground">Central Reservations</p>
+                  <p className="text-muted-foreground">+63 83 552-TROP (8767)</p>
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex flex-col items-center gap-3">
+                <Mail className="h-8 w-8 text-primary" />
                 <div>
-                  <label className="block text-sm font-medium text-card-foreground mb-2">Resort Location</label>
-                  <Select>
-                    <SelectTrigger className="bg-background">
-                      <SelectValue placeholder="Select resort" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="anchor">Anchor Hotel</SelectItem>
-                      <SelectItem value="farm">Dolores Farm Resort</SelectItem>
-                      <SelectItem value="tropicana">Dolores Tropicana Resort</SelectItem>
-                      <SelectItem value="lake">Dolores Lake Resort</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-card-foreground mb-2">Guests</label>
-                  <Select>
-                    <SelectTrigger className="bg-background">
-                      <SelectValue placeholder="Number of guests" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1">1 Guest</SelectItem>
-                      <SelectItem value="2">2 Guests</SelectItem>
-                      <SelectItem value="3">3 Guests</SelectItem>
-                      <SelectItem value="4">4 Guests</SelectItem>
-                      <SelectItem value="5+">5+ Guests</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <p className="font-medium text-card-foreground">Email</p>
+                  <p className="text-muted-foreground">reservations@tropicana.com.ph</p>
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex flex-col items-center gap-3">
+                <Clock className="h-8 w-8 text-primary" />
                 <div>
-                  <label className="block text-sm font-medium text-card-foreground mb-2">Full Name</label>
-                  <Input placeholder="Enter your full name" className="bg-background" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-card-foreground mb-2">Email Address</label>
-                  <Input type="email" placeholder="Enter your email" className="bg-background" />
+                  <p className="font-medium text-card-foreground">Reservations Hours</p>
+                  <p className="text-muted-foreground">24/7 Online | 8 AM - 10 PM Phone (PHT)</p>
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-card-foreground mb-2">Phone Number</label>
-                <Input type="tel" placeholder="Enter your phone number" className="bg-background" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-card-foreground mb-2">Special Requests</label>
-                <Textarea
-                  placeholder="Any special requests or preferences..."
-                  className="bg-background min-h-[100px]"
-                />
-              </div>
-              <Button className="w-full bg-primary hover:bg-primary/90 text-lg py-6 transform hover:scale-105 transition-transform duration-200">
-                Check Availability & Book
-              </Button>
-            </form>
+            </div>
           </Card>
+        </div>
 
-          {/* Contact Information */}
-          <div
-            ref={contactRef}
-            className={`space-y-6 transition-all duration-1000 ease-out ${
-              contactVisible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-8"
-            }`}
-          >
-            <Card className="bg-card p-6">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-3 bg-primary/10 rounded-full">
-                  <MessageCircle className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="text-2xl font-bold text-card-foreground">Get in Touch</h3>
-              </div>
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <Phone className="h-5 w-5 text-primary" />
-                  <div>
-                    <p className="font-medium text-card-foreground">Central Reservations</p>
-                    <p className="text-muted-foreground">+63 83 552-TROP (8767)</p>
+        <div
+          ref={resortsRef}
+          className={`mb-16 transition-all duration-1000 ease-out ${
+            resortsVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+          }`}
+        >
+          <h3 className="text-2xl font-bold text-foreground mb-8 text-center">Our Resort Locations</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {contactInfo.map((resort, index) => (
+              <Card
+                key={index}
+                className={`bg-card p-6 hover:shadow-lg transition-all duration-500 hover:scale-105 ${
+                  resortsVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+                }`}
+                style={{
+                  transitionDelay: resortsVisible ? `${index * 100}ms` : "0ms",
+                }}
+              >
+                <h4 className="font-bold text-lg text-card-foreground mb-4 text-center">{resort.resort}</h4>
+                <div className="space-y-3 text-sm">
+                  <div className="flex items-start gap-2">
+                    <MapPin className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                    <p className="text-muted-foreground leading-tight">{resort.address}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-primary" />
+                    <p className="text-muted-foreground">{resort.phone}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-primary" />
+                    <p className="text-muted-foreground">{resort.email}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-primary" />
+                    <p className="text-muted-foreground">{resort.hours}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Mail className="h-5 w-5 text-primary" />
-                  <div>
-                    <p className="font-medium text-card-foreground">Email</p>
-                    <p className="text-muted-foreground">reservations@tropicana.com.ph</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Clock className="h-5 w-5 text-primary" />
-                  <div>
-                    <p className="font-medium text-card-foreground">Reservations Hours</p>
-                    <p className="text-muted-foreground">24/7 Online | 8 AM - 10 PM Phone (PHT)</p>
-                  </div>
-                </div>
-              </div>
-            </Card>
-
-            {/* Resort Locations */}
-            <div className="space-y-4">
-              {contactInfo.map((resort, index) => (
-                <Card
-                  key={index}
-                  className={`bg-card p-4 hover:shadow-lg transition-all duration-500 hover:scale-105 ${
-                    contactVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
-                  }`}
-                  style={{
-                    transitionDelay: contactVisible ? `${index * 100}ms` : "0ms",
-                  }}
-                >
-                  <h4 className="font-bold text-lg text-card-foreground mb-3">{resort.resort}</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-start gap-2">
-                      <MapPin className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                      <p className="text-muted-foreground">{resort.address}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Phone className="h-4 w-4 text-primary" />
-                      <p className="text-muted-foreground">{resort.phone}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Mail className="h-4 w-4 text-primary" />
-                      <p className="text-muted-foreground">{resort.email}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-primary" />
-                      <p className="text-muted-foreground">{resort.hours}</p>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
+              </Card>
+            ))}
           </div>
         </div>
 
-        {/* Additional Services */}
         <div
           ref={servicesRef}
           className={`bg-card rounded-2xl p-8 transition-all duration-1000 ease-out ${

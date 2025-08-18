@@ -1,0 +1,3041 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// -----------------------------
+// Core Enums and Shared Types
+// -----------------------------
+
+enum DocumentType {
+  SALES_QUOTATION
+  SALES_ORDER
+  DELIVERY
+  AR_INVOICE
+  PURCHASE_REQUEST
+  PURCHASE_ORDER
+  GOODS_RECEIPT_PO
+  AP_INVOICE
+  JOURNAL_ENTRY
+  INCOMING_PAYMENT
+  OUTGOING_PAYMENT
+}
+
+enum DocumentStatus {
+  OPEN
+  CLOSED
+  CANCELLED
+}
+
+enum PeriodStatus {
+  OPEN
+  CLOSED
+}
+
+enum PeriodType {
+  MONTHLY
+  QUARTERLY
+  YEAR_END
+}
+
+enum ApprovalWorkflowStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  POSTED
+}
+
+enum ApprovalAction {
+  SUBMIT
+  APPROVE
+  REJECT
+  POST
+  UNPOST
+  LOCK
+  UNLOCK
+}
+
+enum MovementType {
+  SALE_DEPLETION
+  RECEIVING
+  ADJUSTMENT
+  STOCK_TRANSFER_IN
+  STOCK_TRANSFER_OUT
+}
+
+enum StockRequisitionStatus {
+  PENDING
+  APPROVED
+  FULFILLED
+  REJECTED
+}
+
+enum PurchaseRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum TableStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+enum AccountingEntityType {
+  PROJECT
+  DEPARTMENT
+  COST_CENTER
+  CUSTOMER
+  VENDOR
+  ORDER
+  INVOICE
+  BUSINESS_UNIT
+  OTHER
+}
+
+enum TaxType {
+  VAT
+  GST
+  SALES_TAX
+  OTHER
+}
+
+enum NormalBalance {
+  DEBIT
+  CREDIT
+}
+
+enum CashFlowCategory {
+  OPERATING
+  INVESTING
+  FINANCING
+  NON_CASH
+}
+
+enum JournalBatchStatus {
+  OPEN
+  POSTED
+  REVERSED
+  VOID
+}
+
+enum SettlementStatus {
+  OPEN
+  PARTIALLY_SETTLED
+  SETTLED
+}
+
+enum AttachmentEntityType {
+  JOURNAL_ENTRY
+  AR_INVOICE
+  AP_INVOICE
+  SALES_ORDER
+  PURCHASE_ORDER
+  DELIVERY
+  RECEIVING
+  ORDER
+  GL_ACCOUNT
+  BANK_ACCOUNT
+  OTHER
+}
+
+// FX policy metadata
+enum FxRateType {
+  SPOT
+  AVERAGE
+  CLOSING
+  CUSTOM
+}
+
+enum BusinessPartnerType {
+  CUSTOMER
+  VENDOR
+  LEAD
+}
+
+enum OrderStatus {
+  PREPARING
+  SERVED
+  PAID
+  CANCELLED
+  OPEN
+}
+
+// -----------------------------
+// Users, Roles, Business Units
+// -----------------------------
+
+model User {
+  id          String             @id @default(uuid())
+  name        String?
+  username    String?            @unique
+  password    String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  isActive    Boolean            @default(false)
+  roleId      String?
+  role        Roles?             @relation(fields: [roleId], references: [id])
+  assignments UserBusinessUnit[]
+
+  // Document Ownership & Actions
+  ownedSalesQuotations     SalesQuotation[]   @relation("OwnerToSQ")
+  ownedSalesOrders         SalesOrder[]       @relation("OwnerToSO")
+  createdDeliveries        Delivery[]         @relation("CreatorToDelivery")
+  createdPurchaseRequests  PurchaseRequest[]  @relation("RequestorToPR")
+  approvedPurchaseRequests PurchaseRequest[]  @relation("ApproverToPR")
+  ownedPurchaseOrders      PurchaseOrder[]    @relation("OwnerToPO")
+  createdReceivings        Receiving[]        @relation("ReceiverToReceiving")
+  authoredJournalEntries   JournalEntry[]     @relation("AuthorToJE")
+  approvedJournalEntries   JournalEntry[]     @relation("ApproverToJE")
+  postedJournalEntries     JournalEntry[]     @relation("PosterToJE")
+  updatedJournalEntries    JournalEntry[]     @relation("UpdaterToJE")
+  createdRequisitions      StockRequisition[] @relation("UserRequests")
+  fulfilledRequisitions    StockRequisition[] @relation("UserFulfills")
+  voidedOrderItems         OrderItem[]        @relation("VoidedItems")
+  processedPayments        Payment[]
+  shifts                   Shift[]
+  orders                   Order[]
+
+  // Audit ownerships
+  createdGlAccounts        GlAccount[]               @relation("GlAccountCreatedBy")
+  updatedGlAccounts        GlAccount[]               @relation("GlAccountUpdatedBy")
+  createdJournalLines      JournalEntryLine[]        @relation("CreatorToJELine")
+  updatedJournalLines      JournalEntryLine[]        @relation("UpdaterToJELine")
+  updatedAccountingPeriods AccountingPeriod[]        @relation("UpdaterToAPeriod")
+  createdAccountingPeriods AccountingPeriod[]        @relation("CreatorToAPeriod")
+  createdTaxCodes          TaxCode[]                 @relation("TaxCodeCreatedBy")
+  updatedTaxCodes          TaxCode[]                 @relation("TaxCodeUpdatedBy")
+  approvalLogs             JournalEntryApprovalLog[]
+  journalBatchesPosted     JournalBatch[]            @relation("BatchPostedBy")
+  attachmentsUploaded      Attachment[]              @relation("AttachmentUploader")
+  auditLogs                AuditLog[]
+
+  // New createdBy relations
+  createdRoles                       Roles[]                      @relation("RoleCreatedBy")
+  createdBusinessUnits               BusinessUnit[]               @relation("BusinessUnitCreatedBy")
+  createdNumberingSeries             NumberingSeries[]            @relation("NumberingSeriesCreatedBy")
+  createdBusinessPartners            BusinessPartner[]            @relation("BusinessPartnerCreatedBy")
+  createdSalesQuotations             SalesQuotation[]             @relation("SalesQuotationCreatedBy")
+  createdSalesQuotationItems         SalesQuotationItem[]         @relation("SalesQuotationItemCreatedBy")
+  createdSalesOrders                 SalesOrder[]                 @relation("SalesOrderCreatedBy")
+  createdSalesOrderItems             SalesOrderItem[]             @relation("SalesOrderItemCreatedBy")
+  createdDeliveryItems               DeliveryItem[]               @relation("DeliveryItemCreatedBy")
+  createdARInvoices                  ARInvoice[]                  @relation("ARInvoiceCreatedBy")
+  createdARInvoiceItems              ARInvoiceItem[]              @relation("ARInvoiceItemCreatedBy")
+  createdPurchaseRequestItems        PurchaseRequestItem[]        @relation("PurchaseRequestItemCreatedBy")
+  createdPurchaseOrders              PurchaseOrder[]              @relation("PurchaseOrderCreatedBy")
+  createdPurchaseOrderItems          PurchaseOrderItem[]          @relation("PurchaseOrderItemCreatedBy")
+  createdReceivingItems              ReceivingItem[]              @relation("ReceivingItemCreatedBy")
+  createdAPInvoices                  APInvoice[]                  @relation("APInvoiceCreatedBy")
+  createdAPInvoiceItems              APInvoiceItem[]              @relation("APInvoiceItemCreatedBy")
+  createdBankAccounts                BankAccount[]                @relation("BankAccountCreatedBy")
+  createdIncomingPayments            IncomingPayment[]            @relation("IncomingPaymentCreatedBy")
+  createdOutgoingPayments            OutgoingPayment[]            @relation("OutgoingPaymentCreatedBy")
+  createdDeposits                    Deposit[]                    @relation("DepositCreatedBy")
+  createdAccountTypes                AccountType[]                @relation("AccountTypeCreatedBy")
+  createdAccountCategories           AccountCategory[]            @relation("AccountCategoryCreatedBy")
+  createdAccountGroups               AccountGroup[]               @relation("AccountGroupCreatedBy")
+  createdPostingControls             PostingControl[]             @relation("PostingControlCreatedBy")
+  createdJournalBatches              JournalBatch[]               @relation("JournalBatchCreatedBy")
+  createdDimensions                  Dimension[]                  @relation("DimensionCreatedBy")
+  createdDimensionValues             DimensionValue[]             @relation("DimensionValueCreatedBy")
+  createdARInvoiceItemTaxes          ARInvoiceItemTax[]           @relation("ARInvoiceItemTaxCreatedBy")
+  createdAPInvoiceItemTaxes          APInvoiceItemTax[]           @relation("APInvoiceItemTaxCreatedBy")
+  createdJournalEntryLineTaxes       JournalEntryLineTax[]        @relation("JournalEntryLineTaxCreatedBy")
+  createdIncomingPaymentWithholdings IncomingPaymentWithholding[] @relation("IncomingPaymentWithholdingCreatedBy")
+  createdOutgoingPaymentWithholdings OutgoingPaymentWithholding[] @relation("OutgoingPaymentWithholdingCreatedBy")
+  createdARPaymentApplications       ARPaymentApplication[]       @relation("ARPaymentApplicationCreatedBy")
+  createdAPPaymentApplications       APPaymentApplication[]       @relation("APPaymentApplicationCreatedBy")
+  createdIntercompanyTransactions    IntercompanyTransaction[]    @relation("IntercompanyTransactionCreatedBy")
+  createdInventoryLocations          InventoryLocation[]          @relation("InventoryLocationCreatedBy")
+  createdInventoryItems              InventoryItem[]              @relation("InventoryItemCreatedBy")
+  createdInventoryStocks             InventoryStock[]             @relation("InventoryStockCreatedBy")
+  createdInventoryMovements          InventoryMovement[]          @relation("InventoryMovementCreatedBy")
+  createdStockRequisitionItems       StockRequisitionItem[]       @relation("StockRequisitionItemCreatedBy")
+  createdMenuItems                   MenuItem[]                   @relation("MenuItemCreatedBy")
+  createdMenuCategories              MenuCategory[]               @relation("MenuCategoryCreatedBy")
+  createdModifierGroups              ModifierGroup[]              @relation("ModifierGroupCreatedBy")
+  createdModifiers                   Modifier[]                   @relation("ModifierCreatedBy")
+  createdRecipes                     Recipe[]                     @relation("RecipeCreatedBy")
+  createdRecipeItems                 RecipeItem[]                 @relation("RecipeItemCreatedBy")
+  createdUoMs                        UoM[]                        @relation("UoMCreatedBy")
+  createdPosTerminals                PosTerminal[]                @relation("PosTerminalCreatedBy")
+  createdTables                      Table[]                      @relation("TableCreatedBy")
+  createdReservations                Reservation[]                @relation("ReservationCreatedBy")
+  createdShifts                      Shift[]                      @relation("ShiftCreatedBy")
+  createdOrderItems                  OrderItem[]                  @relation("OrderItemCreatedBy")
+  createdPayments                    Payment[]                    @relation("PaymentCreatedBy")
+  createdPaymentMethods              PaymentMethod[]              @relation("PaymentMethodCreatedBy")
+  createdDiscounts                   Discount[]                   @relation("DiscountCreatedBy")
+  createdFinancialReports            FinancialReport[]            @relation("FinancialReportCreatedBy")
+  createdFinancialReportLines        FinancialReportLine[]        @relation("FinancialReportLineCreatedBy")
+  createdBudgets                     Budget[]                     @relation("BudgetCreatedBy")
+  createdBudgetLines                 BudgetLine[]                 @relation("BudgetLineCreatedBy")
+  createdAttachmentLinks             AttachmentLink[]             @relation("AttachmentLinkCreatedBy")
+  createdPosConfigurations           PosConfiguration[]           @relation("PosConfigCreatedBy")
+  updatedPosConfigurations           PosConfiguration[]           @relation("PosConfigUpdatedBy")
+  createdById                        String?
+
+  // Resort content relations
+  createdAccommodations Accommodation[]  @relation("AccommodationCreatedBy")
+  createdActivities     Activity[]       @relation("ActivityCreatedBy")
+  createdRestaurants    Restaurant[]     @relation("RestaurantCreatedBy")
+  createdEvents         Event[]          @relation("EventCreatedBy")
+  createdGalleryImages  GalleryImage[]   @relation("GalleryImageCreatedBy")
+  createdBookings       Booking[]        @relation("BookingCreatedBy")
+  respondedInquiries    ContactInquiry[] @relation("InquiryResponder")
+  createdTestimonials   Testimonial[]    @relation("TestimonialCreatedBy")
+  createdWebsiteContent WebsiteContent[] @relation("WebsiteContentCreatedBy")
+  createdTeamMembers    TeamMember[]     @relation("TeamMemberCreatedBy")
+  createdAmenities      Amenity[]        @relation("AmenityCreatedBy")
+
+  createdBookingPayments  BookingPayment[]  @relation("BookingPaymentCreatedBy")
+  createdPaymentRefunds   PaymentRefund[]   @relation("PaymentRefundCreatedBy")
+  createdPaymentLinks     PaymentLink[]     @relation("PaymentLinkCreatedBy")
+  createdPaymentCustomers PaymentCustomer[] @relation("PaymentCustomerCreatedBy")
+  paymentCustomer         PaymentCustomer?  @relation("UserPaymentProfile")
+
+  createdRooms                Room[]               @relation("RoomCreatedBy")
+  createdGuests               Guest[]              @relation("GuestCreatedBy")
+  createdGuestCharges         GuestCharge[]        @relation("GuestChargeCreatedBy")
+  createdHousekeepingTasks    HousekeepingTask[]   @relation("HousekeepingTaskCreatedBy")
+  createdServiceRequests      ServiceRequest[]     @relation("ServiceRequestCreatedBy")
+  reportedMaintenanceRequests MaintenanceRequest[] @relation("MaintenanceReportedBy")
+  createdHotelStaff           HotelStaff[]         @relation("HotelStaffCreatedBy")
+  hotelStaffProfile           HotelStaff?          @relation("HotelStaffUser")
+  createdRoomRates            RoomRate[]           @relation("RoomRateCreatedBy")
+  createdHotelServices        HotelService[]       @relation("HotelServiceCreatedBy")
+}
+
+model Roles {
+  id          String             @id @default(uuid())
+  role        String             @unique
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  createdById String?
+  createdBy   User?              @relation("RoleCreatedBy", fields: [createdById], references: [id])
+  assignments UserBusinessUnit[]
+  users       User[] // Relation back to User model
+}
+
+model BusinessUnit {
+  id                 String   @id @default(uuid())
+  name               String
+  functionalCurrency String   @default("USD") // ISO 4217
+  reportingCurrency  String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  createdById        String?
+  createdBy          User?    @relation("BusinessUnitCreatedBy", fields: [createdById], references: [id])
+
+  address  String?
+  phone    String?
+  email    String?
+  website  String?
+  imageUrl String?
+
+  description     String?
+  location        String?
+  userAssignments UserBusinessUnit[]
+
+  // Module-specific data
+  accounts           GlAccount[]
+  accountCategories  AccountCategory[]
+  accountGroups      AccountGroup[]
+  accountingPeriods  AccountingPeriod[]
+  bankAccounts       BankAccount[]
+  businessPartners   BusinessPartner[]
+  inventoryItems     InventoryItem[]
+  inventoryLocations InventoryLocation[]
+  menuItems          MenuItem[]
+  menuCategories     MenuCategory[]
+  modifierGroups     ModifierGroup[]
+  numberingSeries    NumberingSeries[]
+  terminals          PosTerminal[]
+  tables             Table[]
+  discounts          Discount[]
+  deposits           Deposit[]
+  incomingPayments   IncomingPayment[]
+  outgoingPayments   OutgoingPayment[]
+  taxCodes           TaxCode[]
+  dimensions         Dimension[]
+  postingControls    PostingControl[]
+  journalBatches     JournalBatch[]
+  budgets            Budget[]
+  inventroyCategory  InventoryCategory[]
+
+  // Documents
+  salesQuotations  SalesQuotation[]
+  salesOrders      SalesOrder[]
+  deliveries       Delivery[]
+  arInvoices       ARInvoice[]
+  purchaseRequests PurchaseRequest[]
+  purchaseOrders   PurchaseOrder[]
+  receivings       Receiving[]
+  apInvoices       APInvoice[]
+  journalEntries   JournalEntry[]
+  orders           Order[]
+  shifts           Shift[]
+  reservations     Reservation[]
+  financialReports FinancialReport[]
+
+  // Intercompany opposite relations
+  intercompanyTransactionsFrom IntercompanyTransaction[] @relation("ICFromBU")
+  intercompanyTransactionsTo   IntercompanyTransaction[] @relation("ICToBU")
+
+  // POS Configuration
+  posConfiguration        PosConfiguration?
+  paymentMethodGlMappings PaymentMethodGlMapping[]
+
+  accommodations Accommodation[]
+  activities     Activity[]
+  restaurants    Restaurant[]
+  events         Event[]
+  bookings       Booking[]
+
+  rooms         Room[]
+  guests        Guest[]
+  hotelStaff    HotelStaff[]
+  hotelServices HotelService[]
+}
+
+model UserBusinessUnit {
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessUnitId String
+  businessUnit   BusinessUnit @relation(fields: [businessUnitId], references: [id], onDelete: Cascade)
+  roleId         String
+  role           Roles        @relation(fields: [roleId], references: [id])
+  assignedAt     DateTime     @default(now())
+
+  @@id([userId, businessUnitId])
+}
+
+// -----------------------------
+// Numbering Series
+// -----------------------------
+
+model NumberingSeries {
+  id             String       @id @default(uuid())
+  name           String
+  prefix         String
+  nextNumber     Int          @default(1)
+  documentType   DocumentType
+  businessUnitId String
+  businessUnit   BusinessUnit @relation(fields: [businessUnitId], references: [id])
+  createdAt      DateTime     @default(now())
+  createdById    String?
+  createdBy      User?        @relation("NumberingSeriesCreatedBy", fields: [createdById], references: [id])
+
+  posConfigArInvoiceSeries PosConfiguration[] @relation("ConfigARInvoiceSeries")
+  posConfigJeSeries        PosConfiguration[] @relation("ConfigJESeries")
+
+  @@unique([documentType, businessUnitId])
+}
+
+// -----------------------------
+// Business Partners (Customers & Vendors)
+// -----------------------------
+
+model BusinessPartner {
+  id             String              @id @default(uuid())
+  bpCode         String              @unique
+  name           String
+  type           BusinessPartnerType
+  phone          String?
+  email          String?
+  address        String?
+  contactPerson  String?
+  paymentTerms   String?
+  creditLimit    Decimal?
+  tinId          String?
+  loyaltyPoints  Int                 @default(0)
+  businessUnitId String
+  businessUnit   BusinessUnit        @relation(fields: [businessUnitId], references: [id])
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  createdById    String?
+  createdBy      User?               @relation("BusinessPartnerCreatedBy", fields: [createdById], references: [id])
+
+  // Relations to documents
+  salesQuotations  SalesQuotation[]
+  salesOrders      SalesOrder[]
+  deliveries       Delivery[]
+  arInvoices       ARInvoice[]
+  purchaseOrders   PurchaseOrder[]
+  apInvoices       APInvoice[]
+  orders           Order[]
+  reservations     Reservation[]
+  outgoingPayments OutgoingPayment[]
+  incomingPayments IncomingPayment[]
+}
+
+// -----------------------------
+// Sales - A/R
+// -----------------------------
+
+model SalesQuotation {
+  id              String               @id @default(uuid())
+  docNum          String               @unique
+  businessUnitId  String
+  businessUnit    BusinessUnit         @relation(fields: [businessUnitId], references: [id])
+  bpCode          String
+  businessPartner BusinessPartner      @relation(fields: [bpCode], references: [bpCode])
+  ownerId         String
+  owner           User                 @relation("OwnerToSQ", fields: [ownerId], references: [id])
+  postingDate     DateTime
+  validUntil      DateTime
+  documentDate    DateTime
+  discount        Decimal?
+  remarks         String?
+  totalAmount     Decimal?             @db.Decimal(19, 4)
+  status          DocumentStatus       @default(OPEN)
+  items           SalesQuotationItem[]
+  salesOrder      SalesOrder?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  createdById     String?
+  createdBy       User?                @relation("SalesQuotationCreatedBy", fields: [createdById], references: [id])
+}
+
+model SalesQuotationItem {
+  id          String         @id @default(uuid())
+  docId       String
+  document    SalesQuotation @relation(fields: [docId], references: [id], onDelete: Cascade)
+  itemCode    String
+  menuItem    MenuItem       @relation(fields: [itemCode], references: [id])
+  description String
+  quantity    Decimal        @db.Decimal(19, 6)
+  unitPrice   Decimal        @db.Decimal(19, 4)
+  lineTotal   Decimal        @db.Decimal(19, 4)
+  createdAt   DateTime       @default(now())
+  createdById String?
+  createdBy   User?          @relation("SalesQuotationItemCreatedBy", fields: [createdById], references: [id])
+}
+
+model SalesOrder {
+  id              String           @id @default(uuid())
+  docNum          String           @unique
+  baseQuotationId String?          @unique
+  baseQuotation   SalesQuotation?  @relation(fields: [baseQuotationId], references: [id])
+  businessUnitId  String
+  businessUnit    BusinessUnit     @relation(fields: [businessUnitId], references: [id])
+  bpCode          String
+  businessPartner BusinessPartner  @relation(fields: [bpCode], references: [bpCode])
+  ownerId         String
+  owner           User             @relation("OwnerToSO", fields: [ownerId], references: [id])
+  postingDate     DateTime
+  deliveryDate    DateTime
+  documentDate    DateTime
+  remarks         String?
+  totalAmount     Decimal?         @db.Decimal(19, 4)
+  status          DocumentStatus   @default(OPEN)
+  items           SalesOrderItem[]
+  deliveries      Delivery[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  createdById     String?
+  createdBy       User?            @relation("SalesOrderCreatedBy", fields: [createdById], references: [id])
+}
+
+model SalesOrderItem {
+  id           String     @id @default(uuid())
+  docId        String
+  document     SalesOrder @relation(fields: [docId], references: [id], onDelete: Cascade)
+  itemCode     String
+  menuItem     MenuItem   @relation(fields: [itemCode], references: [id])
+  description  String
+  quantity     Decimal    @db.Decimal(19, 6)
+  unitPrice    Decimal    @db.Decimal(19, 4)
+  lineTotal    Decimal    @db.Decimal(19, 4)
+  openQuantity Decimal    @db.Decimal(19, 6)
+  createdAt    DateTime   @default(now())
+  createdById  String?
+  createdBy    User?      @relation("SalesOrderItemCreatedBy", fields: [createdById], references: [id])
+}
+
+model Delivery {
+  id               String          @id @default(uuid())
+  docNum           String          @unique
+  baseSalesOrderId String
+  baseSalesOrder   SalesOrder      @relation(fields: [baseSalesOrderId], references: [id])
+  businessUnitId   String
+  businessUnit     BusinessUnit    @relation(fields: [businessUnitId], references: [id])
+  bpCode           String
+  businessPartner  BusinessPartner @relation(fields: [bpCode], references: [bpCode])
+  createdBy        User            @relation("CreatorToDelivery", fields: [createdById], references: [id])
+  createdById      String
+  postingDate      DateTime
+  documentDate     DateTime
+  remarks          String?
+  status           DocumentStatus  @default(OPEN)
+  items            DeliveryItem[]
+  arInvoice        ARInvoice?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+}
+
+model DeliveryItem {
+  id          String   @id @default(uuid())
+  docId       String
+  document    Delivery @relation(fields: [docId], references: [id], onDelete: Cascade)
+  itemCode    String
+  menuItem    MenuItem @relation(fields: [itemCode], references: [id])
+  description String
+  quantity    Decimal  @db.Decimal(19, 6)
+  createdAt   DateTime @default(now())
+  createdById String?
+  createdBy   User?    @relation("DeliveryItemCreatedBy", fields: [createdById], references: [id])
+}
+
+model ARInvoice {
+  id               String                 @id @default(uuid())
+  docNum           String                 @unique
+  baseDeliveryId   String?                @unique
+  baseDelivery     Delivery?              @relation(fields: [baseDeliveryId], references: [id])
+  businessUnitId   String
+  businessUnit     BusinessUnit           @relation(fields: [businessUnitId], references: [id])
+  bpCode           String
+  businessPartner  BusinessPartner        @relation(fields: [bpCode], references: [bpCode])
+  postingDate      DateTime
+  dueDate          DateTime
+  documentDate     DateTime
+  remarks          String?
+  totalAmount      Decimal                @db.Decimal(19, 4)
+  amountPaid       Decimal                @default(0) @db.Decimal(19, 4)
+  status           DocumentStatus         @default(OPEN)
+  settlementStatus SettlementStatus       @default(OPEN)
+  clearedAt        DateTime?
+  items            ARInvoiceItem[]
+  journalEntryId   String?                @unique
+  journalEntry     JournalEntry?          @relation(fields: [journalEntryId], references: [id])
+  orders           Order[]
+  applications     ARPaymentApplication[]
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  createdById      String?
+  createdBy        User?                  @relation("ARInvoiceCreatedBy", fields: [createdById], references: [id])
+
+  @@index([businessUnitId, dueDate])
+  @@index([bpCode, settlementStatus])
+}
+
+model ARInvoiceItem {
+  id          String             @id @default(uuid())
+  docId       String
+  document    ARInvoice          @relation(fields: [docId], references: [id], onDelete: Cascade)
+  itemCode    String
+  menuItem    MenuItem           @relation(fields: [itemCode], references: [id])
+  description String
+  quantity    Decimal            @db.Decimal(19, 6)
+  unitPrice   Decimal            @db.Decimal(19, 4)
+  lineTotal   Decimal            @db.Decimal(19, 4)
+  glAccountId String
+  glAccount   GlAccount          @relation(fields: [glAccountId], references: [id])
+  taxes       ARInvoiceItemTax[]
+  createdAt   DateTime           @default(now())
+  createdById String?
+  createdBy   User?              @relation("ARInvoiceItemCreatedBy", fields: [createdById], references: [id])
+}
+
+// -----------------------------
+// Purchasing - A/P
+// -----------------------------
+
+model PurchaseRequest {
+  id             String                @id @default(uuid())
+  prNumber       String                @unique
+  businessUnitId String
+  businessUnit   BusinessUnit          @relation(fields: [businessUnitId], references: [id])
+  requestorId    String
+  requestor      User                  @relation("RequestorToPR", fields: [requestorId], references: [id])
+  status         PurchaseRequestStatus @default(PENDING)
+  notes          String?
+  approverId     String?
+  approver       User?                 @relation("ApproverToPR", fields: [approverId], references: [id])
+  approvalDate   DateTime?
+  items          PurchaseRequestItem[]
+  purchaseOrder  PurchaseOrder?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+}
+
+model PurchaseRequestItem {
+  id                String          @id @default(uuid())
+  purchaseRequestId String
+  purchaseRequest   PurchaseRequest @relation(fields: [purchaseRequestId], references: [id], onDelete: Cascade)
+  description       String
+  requestedQuantity Decimal         @db.Decimal(19, 6)
+  uomId             String?
+  uom               UoM?            @relation(fields: [uomId], references: [id])
+  notes             String?
+  createdAt         DateTime        @default(now())
+  createdById       String?
+  createdBy         User?           @relation("PurchaseRequestItemCreatedBy", fields: [createdById], references: [id])
+}
+
+model PurchaseOrder {
+  id                String              @id @default(uuid())
+  poNumber          String              @unique
+  purchaseRequestId String              @unique
+  purchaseRequest   PurchaseRequest     @relation(fields: [purchaseRequestId], references: [id])
+  businessUnitId    String
+  businessUnit      BusinessUnit        @relation(fields: [businessUnitId], references: [id])
+  bpCode            String
+  businessPartner   BusinessPartner     @relation(fields: [bpCode], references: [bpCode])
+  ownerId           String
+  owner             User                @relation("OwnerToPO", fields: [ownerId], references: [id])
+  postingDate       DateTime
+  deliveryDate      DateTime
+  documentDate      DateTime
+  remarks           String?
+  totalAmount       Decimal?            @db.Decimal(19, 4)
+  status            DocumentStatus      @default(OPEN)
+  items             PurchaseOrderItem[]
+  receivings        Receiving[]
+  apInvoice         APInvoice?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  createdById       String?
+  createdBy         User?               @relation("PurchaseOrderCreatedBy", fields: [createdById], references: [id])
+}
+
+model PurchaseOrderItem {
+  id              String          @id @default(uuid())
+  docId           String
+  document        PurchaseOrder   @relation(fields: [docId], references: [id], onDelete: Cascade)
+  description     String
+  inventoryItemId String?
+  inventoryItem   InventoryItem?  @relation(fields: [inventoryItemId], references: [id])
+  glAccountId     String?
+  glAccount       GlAccount?      @relation(fields: [glAccountId], references: [id])
+  quantity        Decimal         @db.Decimal(19, 6)
+  unitPrice       Decimal         @db.Decimal(19, 4)
+  lineTotal       Decimal         @db.Decimal(19, 4)
+  openQuantity    Decimal         @db.Decimal(19, 6)
+  receivingItems  ReceivingItem[] // Add this relation back
+  createdAt       DateTime        @default(now())
+  createdById     String?
+  createdBy       User?           @relation("PurchaseOrderItemCreatedBy", fields: [createdById], references: [id])
+}
+
+model Receiving {
+  id                  String          @id @default(uuid())
+  docNum              String          @unique
+  basePurchaseOrderId String
+  basePurchaseOrder   PurchaseOrder   @relation(fields: [basePurchaseOrderId], references: [id])
+  businessUnitId      String
+  businessUnit        BusinessUnit    @relation(fields: [businessUnitId], references: [id])
+  receivedById        String
+  receivedBy          User            @relation("ReceiverToReceiving", fields: [receivedById], references: [id])
+  postingDate         DateTime
+  documentDate        DateTime
+  remarks             String?
+  deliveryNote        String?
+  items               ReceivingItem[]
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+}
+
+model ReceivingItem {
+  id                  String              @id @default(uuid())
+  docId               String
+  document            Receiving           @relation(fields: [docId], references: [id], onDelete: Cascade)
+  inventoryItemId     String
+  inventoryItem       InventoryItem       @relation(fields: [inventoryItemId], references: [id])
+  quantity            Decimal             @db.Decimal(19, 6)
+  expiryDate          DateTime?
+  inventoryMovements  InventoryMovement[] // 1:n to movements
+  purchaseOrderItemId String? // Optional foreign key
+  purchaseOrderItem   PurchaseOrderItem?  @relation(fields: [purchaseOrderItemId], references: [id])
+  locationId          String? // Optional foreign key
+  location            InventoryLocation?  @relation(fields: [locationId], references: [id])
+  batchNumber         String?
+  notes               String?
+  createdAt           DateTime            @default(now())
+  createdById         String?
+  createdBy           User?               @relation("ReceivingItemCreatedBy", fields: [createdById], references: [id])
+}
+
+model APInvoice {
+  id                  String                 @id @default(uuid())
+  docNum              String                 @unique
+  basePurchaseOrderId String?                @unique
+  basePurchaseOrder   PurchaseOrder?         @relation(fields: [basePurchaseOrderId], references: [id])
+  businessUnitId      String
+  businessUnit        BusinessUnit           @relation(fields: [businessUnitId], references: [id])
+  bpCode              String
+  businessPartner     BusinessPartner        @relation(fields: [bpCode], references: [bpCode])
+  postingDate         DateTime
+  dueDate             DateTime
+  documentDate        DateTime
+  remarks             String?
+  totalAmount         Decimal                @db.Decimal(19, 4)
+  amountPaid          Decimal                @default(0) @db.Decimal(19, 4)
+  status              DocumentStatus         @default(OPEN)
+  settlementStatus    SettlementStatus       @default(OPEN)
+  clearedAt           DateTime?
+  items               APInvoiceItem[]
+  journalEntryId      String?                @unique
+  journalEntry        JournalEntry?          @relation(fields: [journalEntryId], references: [id])
+  applications        APPaymentApplication[]
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+  createdById         String?
+  createdBy           User?                  @relation("APInvoiceCreatedBy", fields: [createdById], references: [id])
+
+  @@index([businessUnitId, dueDate])
+  @@index([bpCode, settlementStatus])
+}
+
+model APInvoiceItem {
+  id          String             @id @default(uuid())
+  docId       String
+  document    APInvoice          @relation(fields: [docId], references: [id], onDelete: Cascade)
+  description String
+  quantity    Decimal            @db.Decimal(19, 6)
+  unitPrice   Decimal            @db.Decimal(19, 4)
+  lineTotal   Decimal            @db.Decimal(19, 4)
+  glAccountId String
+  glAccount   GlAccount          @relation(fields: [glAccountId], references: [id])
+  taxes       APInvoiceItemTax[]
+  createdAt   DateTime           @default(now())
+  createdById String?
+  createdBy   User?              @relation("APInvoiceItemCreatedBy", fields: [createdById], references: [id])
+}
+
+// -----------------------------
+// Banking
+// -----------------------------
+
+model BankAccount {
+  id               String            @id @default(uuid())
+  name             String
+  bankName         String
+  currency         String?
+  iban             String?
+  swiftCode        String?
+  branch           String?
+  accountNumber    String
+  glAccountId      String            @unique
+  glAccount        GlAccount         @relation(fields: [glAccountId], references: [id])
+  businessUnitId   String
+  businessUnit     BusinessUnit      @relation(fields: [businessUnitId], references: [id])
+  incomingPayments IncomingPayment[]
+  outgoingPayments OutgoingPayment[]
+  deposits         Deposit[]
+  createdAt        DateTime          @default(now())
+  createdById      String?
+  createdBy        User?             @relation("BankAccountCreatedBy", fields: [createdById], references: [id])
+}
+
+model IncomingPayment {
+  id              String                       @id @default(uuid())
+  docNum          String                       @unique
+  businessUnitId  String
+  businessUnit    BusinessUnit                 @relation(fields: [businessUnitId], references: [id])
+  bpCode          String
+  businessPartner BusinessPartner              @relation(fields: [bpCode], references: [bpCode])
+  paymentDate     DateTime
+  amount          Decimal                      @db.Decimal(19, 4)
+  bankAccountId   String
+  bankAccount     BankAccount                  @relation(fields: [bankAccountId], references: [id])
+  journalEntryId  String?                      @unique
+  journalEntry    JournalEntry?                @relation(fields: [journalEntryId], references: [id])
+  applications    ARPaymentApplication[]
+  withholdings    IncomingPaymentWithholding[]
+  createdAt       DateTime                     @default(now())
+  paymentMethodId String?
+  paymentMethod   PaymentMethod?               @relation(fields: [paymentMethodId], references: [id])
+  referenceNumber String?
+  remarks         String?
+  createdById     String?
+  createdBy       User?                        @relation("IncomingPaymentCreatedBy", fields: [createdById], references: [id])
+}
+
+model OutgoingPayment {
+  id              String                       @id @default(uuid())
+  docNum          String                       @unique
+  businessUnitId  String
+  businessUnit    BusinessUnit                 @relation(fields: [businessUnitId], references: [id])
+  bpCode          String
+  businessPartner BusinessPartner              @relation(fields: [bpCode], references: [bpCode])
+  paymentDate     DateTime
+  amount          Decimal                      @db.Decimal(19, 4)
+  bankAccountId   String
+  bankAccount     BankAccount                  @relation(fields: [bankAccountId], references: [id])
+  journalEntryId  String?                      @unique
+  journalEntry    JournalEntry?                @relation(fields: [journalEntryId], references: [id])
+  applications    APPaymentApplication[]
+  withholdings    OutgoingPaymentWithholding[]
+  createdAt       DateTime                     @default(now())
+  createdById     String?
+  createdBy       User?                        @relation("OutgoingPaymentCreatedBy", fields: [createdById], references: [id])
+}
+
+model Deposit {
+  id             String         @id @default(uuid())
+  docNum         String         @unique
+  businessUnitId String
+  businessUnit   BusinessUnit   @relation(fields: [businessUnitId], references: [id])
+  bankAccountId  String
+  bankAccount    BankAccount    @relation(fields: [bankAccountId], references: [id])
+  depositDate    DateTime
+  amount         Decimal        @db.Decimal(19, 4)
+  status         PeriodStatus   @default(OPEN)
+  createdAt      DateTime       @default(now())
+  journalEntries JournalEntry[]
+  createdById    String?
+  createdBy      User?          @relation("DepositCreatedBy", fields: [createdById], references: [id])
+}
+
+// -----------------------------
+// Financials: GL, Periods, Posting
+// -----------------------------
+
+model AccountType {
+  id                   String           @id @default(uuid())
+  name                 String           @unique // ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE
+  defaultNormalBalance NormalBalance
+  accounts             GlAccount[]
+  postingControl       PostingControl[]
+  createdAt            DateTime         @default(now())
+  createdById          String?
+  createdBy            User?            @relation("AccountTypeCreatedBy", fields: [createdById], references: [id])
+}
+
+model AccountCategory {
+  id             String            @id @default(uuid())
+  businessUnitId String
+  businessUnit   BusinessUnit      @relation(fields: [businessUnitId], references: [id])
+  code           String
+  name           String
+  parentId       String?
+  parent         AccountCategory?  @relation("AccountCategoryHierarchy", fields: [parentId], references: [id])
+  children       AccountCategory[] @relation("AccountCategoryHierarchy")
+  level          Int               @default(1)
+  accounts       GlAccount[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  createdById    String?
+  createdBy      User?             @relation("AccountCategoryCreatedBy", fields: [createdById], references: [id])
+
+  @@unique([businessUnitId, code])
+}
+
+model AccountGroup {
+  id             String       @id @default(uuid())
+  businessUnitId String
+  businessUnit   BusinessUnit @relation(fields: [businessUnitId], references: [id])
+  name           String
+  codePrefix     String?
+  rangeMin       Int?
+  rangeMax       Int?
+  description    String?
+  accounts       GlAccount[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  createdById    String?
+  createdBy      User?        @relation("AccountGroupCreatedBy", fields: [createdById], references: [id])
+}
+
+model GlAccount {
+  id                 String              @id @default(uuid())
+  accountCode        String
+  name               String
+  description        String?
+  balance            Decimal             @default(0) @db.Decimal(19, 4)
+  accountTypeId      String
+  accountType        AccountType         @relation(fields: [accountTypeId], references: [id])
+  businessUnitId     String
+  businessUnit       BusinessUnit        @relation(fields: [businessUnitId], references: [id], onDelete: Cascade)
+  parentAccountId    String?
+  parentAccount      GlAccount?          @relation("GlAccountHierarchy", fields: [parentAccountId], references: [id])
+  childAccounts      GlAccount[]         @relation("GlAccountHierarchy")
+  isControlAccount   Boolean             @default(false)
+  currency           String?
+  isActive           Boolean             @default(true)
+  notes              String?
+  normalBalance      NormalBalance?
+  accountCategoryId  String?
+  accountCategory    AccountCategory?    @relation(fields: [accountCategoryId], references: [id])
+  accountGroupId     String?
+  accountGroup       AccountGroup?       @relation(fields: [accountGroupId], references: [id])
+  cashFlowCategory   CashFlowCategory?
+  createdById        String?
+  createdBy          User?               @relation("GlAccountCreatedBy", fields: [createdById], references: [id])
+  updatedById        String?
+  updatedBy          User?               @relation("GlAccountUpdatedBy", fields: [updatedById], references: [id])
+  journalLines       JournalEntryLine[]
+  arInvoiceItems     ARInvoiceItem[]
+  apInvoiceItems     APInvoiceItem[]
+  purchaseOrderItems PurchaseOrderItem[]
+  bankAccount        BankAccount?
+  budgetLines        BudgetLine[]        @relation("GlAccountToBudgetLines")
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  // Relations for POS Configuration
+  posConfigSalesRevenue     PosConfiguration[]       @relation("ConfigSalesRevenue")
+  posConfigSalesTax         PosConfiguration[]       @relation("ConfigSalesTax")
+  posConfigCash             PosConfiguration[]       @relation("ConfigCash")
+  posConfigDiscount         PosConfiguration[]       @relation("ConfigDiscount")
+  posConfigServiceCharge    PosConfiguration[]       @relation("ConfigServiceCharge")
+  menuItemSalesMappings     MenuItemGlMapping[]      @relation("MenuItemSalesMapping")
+  menuItemCogsMappings      MenuItemGlMapping[]      @relation("MenuItemCogsMapping")
+  menuItemInventoryMappings MenuItemGlMapping[]      @relation("MenuItemInventoryMapping")
+  paymentMethodGlMappings   PaymentMethodGlMapping[]
+  discounts                 Discount[]
+
+  @@unique([businessUnitId, accountCode]) // per-BU uniqueness
+}
+
+model AccountingPeriod {
+  id              String           @id @default(uuid())
+  name            String
+  startDate       DateTime
+  endDate         DateTime
+  status          PeriodStatus     @default(OPEN)
+  businessUnitId  String
+  businessUnit    BusinessUnit     @relation(fields: [businessUnitId], references: [id])
+  journalEntries  JournalEntry[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  fiscalYear      Int
+  periodNumber    Int
+  lockedDate      DateTime?
+  type            PeriodType       @default(MONTHLY)
+  updatedById     String?
+  updatedBy       User?            @relation("UpdaterToAPeriod", fields: [updatedById], references: [id])
+  createdById     String?
+  createdBy       User?            @relation("CreatorToAPeriod", fields: [createdById], references: [id])
+  postingControls PostingControl[]
+  budgetLines     BudgetLine[]     @relation("BudgetLineToAccountingPeriod")
+
+  @@unique([businessUnitId, fiscalYear, periodNumber])
+}
+
+model PostingControl {
+  id                 String           @id @default(uuid())
+  businessUnitId     String
+  businessUnit       BusinessUnit     @relation(fields: [businessUnitId], references: [id])
+  accountingPeriodId String
+  accountingPeriod   AccountingPeriod @relation(fields: [accountingPeriodId], references: [id])
+  accountTypeId      String?
+  accountType        AccountType?     @relation(fields: [accountTypeId], references: [id])
+  documentType       DocumentType?
+  isAllowed          Boolean          @default(true)
+  isDefault          Boolean          @default(false)
+  notes              String?
+  createdAt          DateTime         @default(now())
+  createdById        String?
+  createdBy          User?            @relation("PostingControlCreatedBy", fields: [createdById], references: [id])
+
+  @@unique([businessUnitId, accountingPeriodId, accountTypeId, documentType])
+}
+
+model JournalBatch {
+  id             String             @id @default(uuid())
+  businessUnitId String
+  businessUnit   BusinessUnit       @relation(fields: [businessUnitId], references: [id])
+  name           String
+  batchDate      DateTime
+  status         JournalBatchStatus @default(OPEN)
+  sourceSystem   String?
+  postedAt       DateTime?
+  postedById     String?
+  postedBy       User?              @relation("BatchPostedBy", fields: [postedById], references: [id])
+  entries        JournalEntry[]
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  createdById    String?
+  createdBy      User?              @relation("JournalBatchCreatedBy", fields: [createdById], references: [id])
+}
+
+model JournalEntry {
+  id                     String                    @id @default(uuid())
+  docNum                 String                    @unique
+  postingDate            DateTime
+  documentDate           DateTime?
+  remarks                String?
+  referenceNumber        String?
+  memo                   String?
+  currency               String?
+  exchangeRate           Decimal?                  @db.Decimal(18, 8)
+  fxRateType             FxRateType?
+  fxRateSource           String?
+  isReversingEntry       Boolean                   @default(false)
+  reversalDate           DateTime?
+  reversedFromEntryId    String?
+  reversedFromEntry      JournalEntry?             @relation("JEReversal", fields: [reversedFromEntryId], references: [id])
+  reversalChildren       JournalEntry[]            @relation("JEReversal")
+  isPosted               Boolean                   @default(false)
+  postedAt               DateTime?
+  postedById             String?
+  postedBy               User?                     @relation("PosterToJE", fields: [postedById], references: [id])
+  locked                 Boolean                   @default(false)
+  approvalWorkflowStatus ApprovalWorkflowStatus    @default(DRAFT)
+  sourceSystem           String?
+  authorId               String
+  author                 User                      @relation("AuthorToJE", fields: [authorId], references: [id])
+  approverId             String?
+  approver               User?                     @relation("ApproverToJE", fields: [approverId], references: [id])
+  updatedById            String?
+  updatedBy              User?                     @relation("UpdaterToJE", fields: [updatedById], references: [id])
+  businessUnitId         String
+  businessUnit           BusinessUnit              @relation(fields: [businessUnitId], references: [id])
+  accountingPeriodId     String?
+  accountingPeriod       AccountingPeriod?         @relation(fields: [accountingPeriodId], references: [id])
+  batchId                String?
+  batch                  JournalBatch?             @relation(fields: [batchId], references: [id])
+  lines                  JournalEntryLine[]
+  arInvoice              ARInvoice?
+  apInvoice              APInvoice?
+  incomingPayment        IncomingPayment?
+  outgoingPayment        OutgoingPayment?
+  depositId              String?
+  deposit                Deposit?                  @relation(fields: [depositId], references: [id])
+  approvals              JournalEntryApprovalLog[]
+  createdAt              DateTime                  @default(now())
+  updatedAt              DateTime                  @updatedAt
+  order                  Order[]
+
+  @@index([businessUnitId, postingDate])
+  @@index([accountingPeriodId])
+  @@index([isPosted, approvalWorkflowStatus])
+}
+
+model JournalEntryApprovalLog {
+  id             String         @id @default(uuid())
+  journalEntryId String
+  journalEntry   JournalEntry   @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  action         ApprovalAction
+  actorId        String
+  actor          User           @relation(fields: [actorId], references: [id])
+  reason         String?
+  createdAt      DateTime       @default(now())
+
+  @@index([journalEntryId, createdAt])
+}
+
+model JournalEntryLine {
+  id                        String                      @id @default(uuid())
+  journalEntryId            String
+  journalEntry              JournalEntry                @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  glAccountBusinessUnitId   String
+  glAccountCode             String
+  glAccount                 GlAccount                   @relation(fields: [glAccountBusinessUnitId, glAccountCode], references: [businessUnitId, accountCode])
+  debit                     Decimal?                    @db.Decimal(19, 4)
+  credit                    Decimal?                    @db.Decimal(19, 4)
+  functionalDebit           Decimal?                    @db.Decimal(19, 4)
+  functionalCredit          Decimal?                    @db.Decimal(19, 4)
+  description               String?
+  currency                  String?
+  exchangeRate              Decimal?                    @db.Decimal(18, 8)
+  fxRateType                FxRateType?
+  fxRateSource              String?
+  entityId                  String?
+  entityType                AccountingEntityType?
+  cashFlowCategory          CashFlowCategory?
+  taxes                     JournalEntryLineTax[]
+  dimensions                JournalEntryLineDimension[]
+  intercompanyTransactionId String?
+  intercompanyTransaction   IntercompanyTransaction?    @relation(fields: [intercompanyTransactionId], references: [id])
+  createdAt                 DateTime                    @default(now())
+  updatedAt                 DateTime                    @updatedAt
+  createdById               String?
+  createdBy                 User?                       @relation("CreatorToJELine", fields: [createdById], references: [id])
+  updatedById               String?
+  updatedBy                 User?                       @relation("UpdaterToJELine", fields: [updatedById], references: [id])
+
+  @@index([journalEntryId])
+  @@index([glAccountBusinessUnitId, glAccountCode])
+  @@index([createdAt])
+}
+
+// -----------------------------
+// Dimensions (Multi-dimensional Accounting)
+// -----------------------------
+
+model Dimension {
+  id             String           @id @default(uuid())
+  name           String
+  type           String
+  isActive       Boolean          @default(true)
+  businessUnitId String
+  businessUnit   BusinessUnit     @relation(fields: [businessUnitId], references: [id])
+  values         DimensionValue[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  createdById    String?
+  createdBy      User?            @relation("DimensionCreatedBy", fields: [createdById], references: [id])
+
+  @@unique([businessUnitId, name])
+}
+
+model DimensionValue {
+  id                String                      @id @default(uuid())
+  dimensionId       String
+  dimension         Dimension                   @relation(fields: [dimensionId], references: [id], onDelete: Cascade)
+  code              String?
+  name              String
+  isActive          Boolean                     @default(true)
+  journalEntryLines JournalEntryLineDimension[]
+  budgetLines       BudgetLine[]
+  createdAt         DateTime                    @default(now())
+  updatedAt         DateTime                    @updatedAt
+  createdById       String?
+  createdBy         User?                       @relation("DimensionValueCreatedBy", fields: [createdById], references: [id])
+
+  @@unique([dimensionId, name])
+  @@unique([dimensionId, code])
+}
+
+model JournalEntryLineDimension {
+  journalEntryLineId String
+  journalEntryLine   JournalEntryLine @relation(fields: [journalEntryLineId], references: [id], onDelete: Cascade)
+  dimensionValueId   String
+  dimensionValue     DimensionValue   @relation(fields: [dimensionValueId], references: [id], onDelete: Cascade)
+
+  @@id([journalEntryLineId, dimensionValueId])
+}
+
+// -----------------------------
+// Tax Handling (Multi-tax)
+// -----------------------------
+
+model TaxCode {
+  id                   String                       @id @default(uuid())
+  code                 String
+  name                 String
+  rate                 Decimal                      @db.Decimal(9, 6)
+  type                 TaxType
+  isActive             Boolean                      @default(true)
+  description          String?
+  businessUnitId       String
+  businessUnit         BusinessUnit                 @relation(fields: [businessUnitId], references: [id])
+  createdAt            DateTime                     @default(now())
+  updatedAt            DateTime                     @updatedAt
+  createdById          String?
+  createdBy            User?                        @relation("TaxCodeCreatedBy", fields: [createdById], references: [id])
+  updatedById          String?
+  updatedBy            User?                        @relation("TaxCodeUpdatedBy", fields: [updatedById], references: [id])
+  arInvoiceItemTaxes   ARInvoiceItemTax[]
+  apInvoiceItemTaxes   APInvoiceItemTax[]
+  journalLineTaxes     JournalEntryLineTax[]
+  incomingWithholdings IncomingPaymentWithholding[]
+  outgoingWithholdings OutgoingPaymentWithholding[]
+
+  @@unique([businessUnitId, code])
+}
+
+model ARInvoiceItemTax {
+  id              String        @id @default(uuid())
+  arInvoiceItemId String
+  arInvoiceItem   ARInvoiceItem @relation(fields: [arInvoiceItemId], references: [id], onDelete: Cascade)
+  taxCodeId       String
+  taxCode         TaxCode       @relation(fields: [taxCodeId], references: [id])
+  taxBase         Decimal       @db.Decimal(19, 4)
+  taxAmount       Decimal       @db.Decimal(19, 4)
+  createdAt       DateTime      @default(now())
+  createdById     String?
+  createdBy       User?         @relation("ARInvoiceItemTaxCreatedBy", fields: [createdById], references: [id])
+}
+
+model APInvoiceItemTax {
+  id              String        @id @default(uuid())
+  apInvoiceItemId String
+  apInvoiceItem   APInvoiceItem @relation(fields: [apInvoiceItemId], references: [id], onDelete: Cascade)
+  taxCodeId       String
+  taxCode         TaxCode       @relation(fields: [taxCodeId], references: [id])
+  taxBase         Decimal       @db.Decimal(19, 4)
+  taxAmount       Decimal       @db.Decimal(19, 4)
+  createdAt       DateTime      @default(now())
+  createdById     String?
+  createdBy       User?         @relation("APInvoiceItemTaxCreatedBy", fields: [createdById], references: [id])
+}
+
+model JournalEntryLineTax {
+  id                 String           @id @default(uuid())
+  journalEntryLineId String
+  journalEntryLine   JournalEntryLine @relation(fields: [journalEntryLineId], references: [id], onDelete: Cascade)
+  taxCodeId          String
+  taxCode            TaxCode          @relation(fields: [taxCodeId], references: [id])
+  taxBase            Decimal?         @db.Decimal(19, 4)
+  taxAmount          Decimal?         @db.Decimal(19, 4)
+  createdAt          DateTime         @default(now())
+  createdById        String?
+  createdBy          User?            @relation("JournalEntryLineTaxCreatedBy", fields: [createdById], references: [id])
+}
+
+model IncomingPaymentWithholding {
+  id          String          @id @default(uuid())
+  paymentId   String
+  payment     IncomingPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  taxCodeId   String
+  taxCode     TaxCode         @relation(fields: [taxCodeId], references: [id])
+  amount      Decimal         @db.Decimal(19, 4)
+  createdAt   DateTime        @default(now())
+  createdById String?
+  createdBy   User?           @relation("IncomingPaymentWithholdingCreatedBy", fields: [createdById], references: [id])
+}
+
+model OutgoingPaymentWithholding {
+  id          String          @id @default(uuid())
+  paymentId   String
+  payment     OutgoingPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  taxCodeId   String
+  taxCode     TaxCode         @relation(fields: [taxCodeId], references: [id])
+  amount      Decimal         @db.Decimal(19, 4)
+  createdAt   DateTime        @default(now())
+  createdById String?
+  createdBy   User?           @relation("OutgoingPaymentWithholdingCreatedBy", fields: [createdById], references: [id])
+}
+
+// -----------------------------
+// Subledger Reconciliation (Applications)
+// -----------------------------
+
+model ARPaymentApplication {
+  id                String          @id @default(uuid())
+  invoiceId         String
+  invoice           ARInvoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  incomingPaymentId String
+  incomingPayment   IncomingPayment @relation(fields: [incomingPaymentId], references: [id], onDelete: Cascade)
+  amountApplied     Decimal         @db.Decimal(19, 4)
+  appliedAt         DateTime        @default(now())
+  createdAt         DateTime        @default(now())
+  createdById       String?
+  createdBy         User?           @relation("ARPaymentApplicationCreatedBy", fields: [createdById], references: [id])
+
+  @@unique([invoiceId, incomingPaymentId])
+  @@index([invoiceId])
+  @@index([incomingPaymentId])
+}
+
+model APPaymentApplication {
+  id                String          @id @default(uuid())
+  apInvoiceId       String
+  apInvoice         APInvoice       @relation(fields: [apInvoiceId], references: [id], onDelete: Cascade)
+  outgoingPaymentId String
+  outgoingPayment   OutgoingPayment @relation(fields: [outgoingPaymentId], references: [id], onDelete: Cascade)
+  amountApplied     Decimal         @db.Decimal(19, 4)
+  appliedAt         DateTime        @default(now())
+  createdAt         DateTime        @default(now())
+  createdById       String?
+  createdBy         User?           @relation("APPaymentApplicationCreatedBy", fields: [createdById], references: [id])
+
+  @@unique([apInvoiceId, outgoingPaymentId])
+  @@index([apInvoiceId])
+  @@index([outgoingPaymentId])
+}
+
+// -----------------------------
+// Intercompany Support (minimal)
+// -----------------------------
+
+model IntercompanyTransaction {
+  id                 String             @id @default(uuid())
+  fromBusinessUnitId String
+  fromBusinessUnit   BusinessUnit       @relation("ICFromBU", fields: [fromBusinessUnitId], references: [id])
+  toBusinessUnitId   String
+  toBusinessUnit     BusinessUnit       @relation("ICToBU", fields: [toBusinessUnitId], references: [id])
+  description        String?
+  createdAt          DateTime           @default(now())
+  journalLines       JournalEntryLine[]
+  createdById        String?
+  createdBy          User?              @relation("IntercompanyTransactionCreatedBy", fields: [createdById], references: [id])
+}
+
+// -----------------------------
+// Inventory, POS & Menu
+// -----------------------------
+
+model InventoryLocation {
+  id               String             @id @default(uuid())
+  name             String
+  description      String?
+  address          String?
+  contactPerson    String?
+  phone            String?
+  businessUnitId   String
+  businessUnit     BusinessUnit       @relation(fields: [businessUnitId], references: [id])
+  stockLevels      InventoryStock[]
+  requisitionsFrom StockRequisition[] @relation("FromRequisitions")
+  requisitionsTo   StockRequisition[] @relation("ToRequisitions")
+  receivingItems   ReceivingItem[] // Add this relation back
+  createdAt        DateTime           @default(now())
+  createdById      String?
+  createdBy        User?              @relation("InventoryLocationCreatedBy", fields: [createdById], references: [id])
+}
+
+model InventoryItem {
+  id                  String                 @id @default(uuid())
+  itemCode            String?                @unique
+  name                String
+  description         String?
+  standardCost        String?
+  isActive            Boolean                @default(true)
+  businessUnitId      String
+  businessUnit        BusinessUnit           @relation(fields: [businessUnitId], references: [id])
+  uomId               String
+  uom                 UoM                    @relation(fields: [uomId], references: [id])
+  purchaseItems       PurchaseOrderItem[]
+  receivingItems      ReceivingItem[]
+  stockLevels         InventoryStock[]
+  recipeItems         RecipeItem[]
+  modifiers           Modifier[]
+  stockRequisitions   StockRequisitionItem[]
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+  inventoryCategoryId String?
+  inventoryCategory   InventoryCategory?     @relation(fields: [inventoryCategoryId], references: [id])
+  createdById         String?
+  createdBy           User?                  @relation("InventoryItemCreatedBy", fields: [createdById], references: [id])
+}
+
+model InventoryStock {
+  id              String              @id @default(uuid())
+  inventoryItemId String
+  inventoryItem   InventoryItem       @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+  locationId      String
+  location        InventoryLocation   @relation(fields: [locationId], references: [id])
+  quantityOnHand  Decimal             @db.Decimal(19, 6)
+  reorderPoint    Decimal             @default(0) @db.Decimal(19, 6)
+  updatedAt       DateTime            @updatedAt
+  movements       InventoryMovement[]
+  createdAt       DateTime            @default(now())
+  createdById     String?
+  createdBy       User?               @relation("InventoryStockCreatedBy", fields: [createdById], references: [id])
+
+  @@unique([inventoryItemId, locationId])
+}
+
+model InventoryCategory {
+  id             String          @id @default(uuid())
+  name           String
+  businessUnitId String
+  businessUnit   BusinessUnit    @relation(fields: [businessUnitId], references: [id])
+  inventoryItems InventoryItem[]
+
+  @@unique([businessUnitId, name])
+}
+
+model InventoryMovement {
+  id                 String            @id @default(uuid())
+  inventoryStockId   String
+  inventoryStock     InventoryStock    @relation(fields: [inventoryStockId], references: [id])
+  type               MovementType
+  quantity           Decimal           @db.Decimal(19, 6)
+  reason             String?
+  orderId            String?
+  order              Order?            @relation(fields: [orderId], references: [id])
+  stockRequisitionId String?
+  stockRequisition   StockRequisition? @relation(fields: [stockRequisitionId], references: [id])
+  receivingItemId    String?
+  receivingItem      ReceivingItem?    @relation(fields: [receivingItemId], references: [id])
+  createdAt          DateTime          @default(now())
+  createdById        String?
+  createdBy          User?             @relation("InventoryMovementCreatedBy", fields: [createdById], references: [id])
+}
+
+model StockRequisition {
+  id                String                 @id @default(uuid())
+  requisitionNumber String                 @unique
+  requestDate       DateTime?
+  requiredDate      DateTime?
+  purpose           String?
+  fromLocationId    String
+  fromLocation      InventoryLocation      @relation("FromRequisitions", fields: [fromLocationId], references: [id])
+  toLocationId      String
+  toLocation        InventoryLocation      @relation("ToRequisitions", fields: [toLocationId], references: [id])
+  requestorId       String
+  requestor         User                   @relation("UserRequests", fields: [requestorId], references: [id])
+  fulfillerId       String?
+  fulfiller         User?                  @relation("UserFulfills", fields: [fulfillerId], references: [id])
+  status            StockRequisitionStatus @default(PENDING)
+  notes             String?
+  items             StockRequisitionItem[]
+  createdAt         DateTime               @default(now())
+  fulfilledAt       DateTime?
+  stockMovements    InventoryMovement[]
+}
+
+model StockRequisitionItem {
+  id                 String           @id @default(uuid())
+  stockRequisitionId String
+  stockRequisition   StockRequisition @relation(fields: [stockRequisitionId], references: [id], onDelete: Cascade)
+  inventoryItemId    String
+  inventoryItem      InventoryItem    @relation(fields: [inventoryItemId], references: [id])
+  requestedQuantity  Decimal          @db.Decimal(19, 6)
+  fulfilledQuantity  Decimal?         @db.Decimal(19, 6)
+  createdAt          DateTime         @default(now())
+  createdById        String?
+  createdBy          User?            @relation("StockRequisitionItemCreatedBy", fields: [createdById], references: [id])
+}
+
+model MenuItem {
+  id                  String               @id @default(uuid())
+  name                String
+  description         String?
+  imageUrl            String?
+  isActive            Boolean              @default(true)
+  price               Decimal              @db.Decimal(19, 4)
+  businessUnitId      String
+  businessUnit        BusinessUnit         @relation(fields: [businessUnitId], references: [id])
+  salesQuotationItems SalesQuotationItem[]
+  salesOrderItems     SalesOrderItem[]
+  deliveryItems       DeliveryItem[]
+  arInvoiceItems      ARInvoiceItem[]
+  orderItems          OrderItem[]
+  recipe              Recipe?
+  modifierGroups      ModifierGroup[]
+  categoryId          String
+  category            MenuCategory         @relation(fields: [categoryId], references: [id])
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  createdById         String?
+  createdBy           User?                @relation("MenuItemCreatedBy", fields: [createdById], references: [id])
+  glMapping           MenuItemGlMapping?
+}
+
+model MenuCategory {
+  id             String       @id @default(uuid())
+  name           String
+  description    String?
+  isActive       Boolean      @default(true)
+  prepStation    String?
+  imageUrl       String?
+  sortOrder      Int          @default(0)
+  businessUnitId String
+  businessUnit   BusinessUnit @relation(fields: [businessUnitId], references: [id])
+  menuItems      MenuItem[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  createdById    String?
+  createdBy      User?        @relation("MenuCategoryCreatedBy", fields: [createdById], references: [id])
+}
+
+model ModifierGroup {
+  id             String       @id @default(uuid())
+  name           String
+  required       Boolean      @default(false)
+  maxSelections  Int          @default(1)
+  businessUnitId String
+  businessUnit   BusinessUnit @relation(fields: [businessUnitId], references: [id])
+  menuItems      MenuItem[]
+  modifiers      Modifier[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  createdById    String?
+  createdBy      User?        @relation("ModifierGroupCreatedBy", fields: [createdById], references: [id])
+}
+
+model Modifier {
+  id              String         @id @default(uuid())
+  name            String
+  priceChange     Decimal        @default(0) @db.Decimal(19, 4)
+  price           Decimal?       @default(0)
+  quantityUsed    Decimal?       @db.Decimal(19, 6)
+  modifierGroupId String
+  modifierGroup   ModifierGroup  @relation(fields: [modifierGroupId], references: [id], onDelete: Cascade)
+  inventoryItemId String?
+  inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id])
+  orderItems      OrderItem[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  createdById     String?
+  createdBy       User?          @relation("ModifierCreatedBy", fields: [createdById], references: [id])
+}
+
+model Recipe {
+  id          String       @id @default(uuid())
+  menuItemId  String       @unique
+  menuItem    MenuItem     @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  recipeItems RecipeItem[]
+  createdAt   DateTime     @default(now())
+  createdById String?
+  createdBy   User?        @relation("RecipeCreatedBy", fields: [createdById], references: [id])
+}
+
+model RecipeItem {
+  id              String        @id @default(uuid())
+  recipeId        String
+  recipe          Recipe        @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  inventoryItemId String
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
+  quantityUsed    Decimal       @db.Decimal(19, 6)
+  createdAt       DateTime      @default(now())
+  createdById     String?
+  createdBy       User?         @relation("RecipeItemCreatedBy", fields: [createdById], references: [id])
+}
+
+model UoM {
+  id                   String                @id @default(uuid())
+  name                 String
+  symbol               String
+  purchaseRequestItems PurchaseRequestItem[]
+  inventoryItems       InventoryItem[]
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  createdById          String?
+  createdBy            User?                 @relation("UoMCreatedBy", fields: [createdById], references: [id])
+}
+
+// -----------------------------
+// POS
+// -----------------------------
+
+model PosTerminal {
+  id             String       @id @default(uuid())
+  name           String
+  businessUnitId String
+  businessUnit   BusinessUnit @relation(fields: [businessUnitId], references: [id])
+  orders         Order[]
+  shifts         Shift[]
+  createdAt      DateTime     @default(now())
+  createdById    String?
+  createdBy      User?        @relation("PosTerminalCreatedBy", fields: [createdById], references: [id])
+}
+
+model Table {
+  id             String        @id @default(uuid())
+  name           String
+  capacity       String?
+  location       String?
+  businessUnitId String
+  businessUnit   BusinessUnit  @relation(fields: [businessUnitId], references: [id])
+  status         TableStatus   @default(AVAILABLE)
+  orders         Order[]
+  reservations   Reservation[]
+  createdAt      DateTime      @default(now())
+  createdById    String?
+  createdBy      User?         @relation("TableCreatedBy", fields: [createdById], references: [id])
+}
+
+model Reservation {
+  id                String          @id @default(uuid())
+  businessPartnerId String
+  businessPartner   BusinessPartner @relation(fields: [businessPartnerId], references: [bpCode])
+  businessUnitId    String
+  businessUnit      BusinessUnit    @relation(fields: [businessUnitId], references: [id])
+  tableId           String?
+  table             Table?          @relation(fields: [tableId], references: [id])
+  reservationTime   DateTime
+  partySize         Int
+  status            String
+  notes             String?
+  createdAt         DateTime        @default(now())
+  createdById       String?
+  createdBy         User?           @relation("ReservationCreatedBy", fields: [createdById], references: [id])
+}
+
+model Shift {
+  id             String       @id @default(uuid())
+  businessUnitId String
+  businessUnit   BusinessUnit @relation(fields: [businessUnitId], references: [id])
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+  terminalId     String
+  terminal       PosTerminal  @relation(fields: [terminalId], references: [id])
+  startedAt      DateTime     @default(now())
+  endedAt        DateTime?
+  startingCash   Decimal      @db.Decimal(19, 4)
+  endingCash     Decimal?     @db.Decimal(19, 4)
+  payments       Payment[]
+  orders         Order[]
+  createdAt      DateTime     @default(now())
+  createdById    String?
+  createdBy      User?        @relation("ShiftCreatedBy", fields: [createdById], references: [id])
+}
+
+model Order {
+  id                      String              @id @default(uuid())
+  businessUnitId          String
+  businessUnit            BusinessUnit        @relation(fields: [businessUnitId], references: [id])
+  tableId                 String?
+  table                   Table?              @relation(fields: [tableId], references: [id])
+  userId                  String
+  user                    User                @relation(fields: [userId], references: [id])
+  terminalId              String
+  terminal                PosTerminal         @relation(fields: [terminalId], references: [id])
+  status                  OrderStatus         @default(OPEN)
+  orderType               String              @default("Dine-In")
+  items                   OrderItem[]
+  movements               InventoryMovement[]
+  subTotal                Decimal             @default(0) @db.Decimal(19, 4)
+  discountValue           Decimal             @default(0) @db.Decimal(19, 4)
+  tax                     Decimal             @default(0) @db.Decimal(19, 4)
+  totalAmount             Decimal             @db.Decimal(19, 4)
+  amountPaid              Decimal             @default(0) @db.Decimal(19, 4)
+  payments                Payment[]
+  isPaid                  Boolean             @default(false)
+  discountId              String?
+  discount                Discount?           @relation(fields: [discountId], references: [id])
+  shiftId                 String?
+  shift                   Shift?              @relation(fields: [shiftId], references: [id])
+  businessPartnerId       String?
+  businessPartner         BusinessPartner?    @relation(fields: [businessPartnerId], references: [bpCode])
+  arInvoiceId             String?
+  arInvoice               ARInvoice?          @relation(fields: [arInvoiceId], references: [id])
+  specialInstructions     String?
+  estimatedCompletionTime DateTime?
+  paidAt                  DateTime?
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+  posConfigId             String?
+  posConfig               PosConfiguration?   @relation(fields: [posConfigId], references: [id])
+  journalEntryId          String?
+  journalEntry            JournalEntry?       @relation(fields: [journalEntryId], references: [id])
+}
+
+model OrderItem {
+  id             String     @id @default(uuid())
+  orderId        String
+  order          Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId     String
+  menuItem       MenuItem   @relation(fields: [menuItemId], references: [id])
+  quantity       Int
+  priceAtSale    Decimal    @db.Decimal(19, 4)
+  notes          String?
+  kdsStatus      String     @default("PENDING")
+  isVoided       Boolean    @default(false)
+  voidedAt       DateTime?
+  voidReason     String?
+  voidedByUserId String?
+  voidedByUser   User?      @relation("VoidedItems", fields: [voidedByUserId], references: [id])
+  modifiers      Modifier[]
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  createdById    String?
+  createdBy      User?      @relation("OrderItemCreatedBy", fields: [createdById], references: [id])
+}
+
+model Payment {
+  id                String        @id @default(uuid())
+  orderId           String
+  order             Order         @relation(fields: [orderId], references: [id])
+  amount            Decimal       @db.Decimal(19, 4)
+  paymentMethodId   String
+  paymentMethod     PaymentMethod @relation(fields: [paymentMethodId], references: [id])
+  processedByUserId String
+  processedByUser   User          @relation(fields: [processedByUserId], references: [id])
+  shiftId           String
+  shift             Shift         @relation(fields: [shiftId], references: [id])
+  createdAt         DateTime      @default(now())
+  createdById       String?
+  createdBy         User?         @relation("PaymentCreatedBy", fields: [createdById], references: [id])
+}
+
+model PaymentMethod {
+  id               String                   @id @default(uuid())
+  name             String
+  isActive         Boolean                  @default(true)
+  payments         Payment[]
+  createdAt        DateTime                 @default(now())
+  createdById      String?
+  createdBy        User?                    @relation("PaymentMethodCreatedBy", fields: [createdById], references: [id])
+  incomingPayments IncomingPayment[]
+  glMappings       PaymentMethodGlMapping[]
+}
+
+model Discount {
+  id             String       @id @default(uuid())
+  name           String
+  type           DiscountType
+  value          Decimal      @db.Decimal(19, 4)
+  isActive       Boolean      @default(true)
+  businessUnitId String
+  businessUnit   BusinessUnit @relation(fields: [businessUnitId], references: [id])
+  orders         Order[]
+  createdAt      DateTime     @default(now())
+  createdById    String?
+  createdBy      User?        @relation("DiscountCreatedBy", fields: [createdById], references: [id])
+  glAccountId    String?
+  glAccount      GlAccount?   @relation(fields: [glAccountId], references: [id])
+}
+
+// -----------------------------
+// POS Configuration
+// -----------------------------
+
+model PosConfiguration {
+  id                       String           @id @default(uuid())
+  businessUnitId           String           @unique
+  businessUnit             BusinessUnit     @relation(fields: [businessUnitId], references: [id], onDelete: Cascade)
+  autoPostToGl             Boolean          @default(false)
+  autoCreateArInvoice      Boolean          @default(false)
+  salesRevenueAccountId    String?
+  salesRevenueAccount      GlAccount?       @relation("ConfigSalesRevenue", fields: [salesRevenueAccountId], references: [id])
+  salesTaxAccountId        String?
+  salesTaxAccount          GlAccount?       @relation("ConfigSalesTax", fields: [salesTaxAccountId], references: [id])
+  cashAccountId            String?
+  cashAccount              GlAccount?       @relation("ConfigCash", fields: [cashAccountId], references: [id])
+  discountAccountId        String?
+  discountAccount          GlAccount?       @relation("ConfigDiscount", fields: [discountAccountId], references: [id])
+  serviceChargeAccountId   String?
+  serviceChargeAccount     GlAccount?       @relation("ConfigServiceCharge", fields: [serviceChargeAccountId], references: [id])
+  defaultCustomerBpCode    String?          @default("WALK-IN")
+  requireCustomerSelection Boolean          @default(false)
+  enableDiscounts          Boolean          @default(true)
+  enableServiceCharge      Boolean          @default(false)
+  serviceChargeRate        Decimal?         @default(0.0000) @db.Decimal(8, 4)
+  arInvoiceSeriesId        String?
+  arInvoiceSeries          NumberingSeries? @relation("ConfigARInvoiceSeries", fields: [arInvoiceSeriesId], references: [id])
+  journalEntrySeriesId     String?
+  journalEntrySeries       NumberingSeries? @relation("ConfigJESeries", fields: [journalEntrySeriesId], references: [id])
+  createdAt                DateTime         @default(now())
+  updatedAt                DateTime         @updatedAt
+  createdById              String?
+  createdBy                User?            @relation("PosConfigCreatedBy", fields: [createdById], references: [id])
+  updatedById              String?
+  updatedBy                User?            @relation("PosConfigUpdatedBy", fields: [updatedById], references: [id])
+  orders                   Order[]
+}
+
+model MenuItemGlMapping {
+  id                 String     @id @default(uuid())
+  menuItemId         String     @unique
+  menuItem           MenuItem   @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  salesAccountId     String
+  salesAccount       GlAccount  @relation("MenuItemSalesMapping", fields: [salesAccountId], references: [id])
+  cogsAccountId      String?
+  cogsAccount        GlAccount? @relation("MenuItemCogsMapping", fields: [cogsAccountId], references: [id])
+  inventoryAccountId String?
+  inventoryAccount   GlAccount? @relation("MenuItemInventoryMapping", fields: [inventoryAccountId], references: [id])
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+}
+
+model PaymentMethodGlMapping {
+  id              String        @id @default(uuid())
+  paymentMethodId String
+  paymentMethod   PaymentMethod @relation(fields: [paymentMethodId], references: [id], onDelete: Cascade)
+  businessUnitId  String
+  businessUnit    BusinessUnit  @relation(fields: [businessUnitId], references: [id], onDelete: Cascade)
+  glAccountId     String
+  glAccount       GlAccount     @relation(fields: [glAccountId], references: [id])
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([paymentMethodId, businessUnitId])
+}
+
+// -----------------------------
+// Reporting
+// -----------------------------
+
+model FinancialReport {
+  id             String                @id @default(uuid())
+  businessUnitId String
+  businessUnit   BusinessUnit          @relation(fields: [businessUnitId], references: [id])
+  name           String
+  generatedAt    DateTime              @default(now())
+  lines          FinancialReportLine[]
+  createdAt      DateTime              @default(now())
+  createdById    String?
+  createdBy      User?                 @relation("FinancialReportCreatedBy", fields: [createdById], references: [id])
+}
+
+model FinancialReportLine {
+  id                String          @id @default(uuid())
+  financialReportId String
+  financialReport   FinancialReport @relation(fields: [financialReportId], references: [id])
+  label             String
+  value             Decimal         @db.Decimal(19, 4)
+  order             Int
+  createdAt         DateTime        @default(now())
+  createdById       String?
+  createdBy         User?           @relation("FinancialReportLineCreatedBy", fields: [createdById], references: [id])
+}
+
+// Budgets
+model Budget {
+  id             String       @id @default(uuid())
+  businessUnitId String
+  businessUnit   BusinessUnit @relation(fields: [businessUnitId], references: [id])
+  name           String
+  fiscalYear     Int
+  currency       String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  lines          BudgetLine[]
+  createdById    String?
+  createdBy      User?        @relation("BudgetCreatedBy", fields: [createdById], references: [id])
+
+  @@unique([businessUnitId, name, fiscalYear])
+}
+
+model BudgetLine {
+  id                 String            @id @default(uuid())
+  budgetId           String
+  budget             Budget            @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  glAccountId        String
+  glAccount          GlAccount         @relation("GlAccountToBudgetLines", fields: [glAccountId], references: [id])
+  dimensionValueId   String?
+  dimensionValue     DimensionValue?   @relation(fields: [dimensionValueId], references: [id])
+  accountingPeriodId String?
+  accountingPeriod   AccountingPeriod? @relation("BudgetLineToAccountingPeriod", fields: [accountingPeriodId], references: [id])
+  amount             Decimal           @db.Decimal(19, 4)
+  createdAt          DateTime          @default(now())
+  createdById        String?
+  createdBy          User?             @relation("BudgetLineCreatedBy", fields: [createdById], references: [id])
+
+  @@unique([budgetId, glAccountId, dimensionValueId, accountingPeriodId])
+  @@index([glAccountId])
+  @@index([dimensionValueId])
+  @@index([accountingPeriodId])
+}
+
+// -----------------------------
+// Attachments & Audit Logs
+// -----------------------------
+
+model Attachment {
+  id           String           @id @default(uuid())
+  url          String
+  fileName     String
+  mimeType     String
+  sizeBytes    Int
+  uploadedById String
+  uploadedBy   User             @relation("AttachmentUploader", fields: [uploadedById], references: [id])
+  uploadedAt   DateTime         @default(now())
+  links        AttachmentLink[]
+}
+
+model AttachmentLink {
+  id           String               @id @default(uuid())
+  attachmentId String
+  attachment   Attachment           @relation(fields: [attachmentId], references: [id], onDelete: Cascade)
+  entityType   AttachmentEntityType
+  entityId     String
+  notes        String?
+  createdAt    DateTime             @default(now())
+  createdById  String?
+  createdBy    User?                @relation("AttachmentLinkCreatedBy", fields: [createdById], references: [id])
+
+  @@index([entityType, entityId])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  tableName  String
+  recordId   String
+  action     String
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  occurredAt DateTime @default(now())
+  diff       Json?
+  notes      String?
+
+  @@index([tableName, recordId, occurredAt])
+}
+
+enum AccommodationType {
+  VILLA
+  SUITE
+  ROOM
+  BUNGALOW
+  COTTAGE
+}
+
+enum ActivityType {
+  WATER_SPORTS
+  LAND_ACTIVITIES
+  WELLNESS
+  CULTURAL
+  ADVENTURE
+  DINING
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum InquiryStatus {
+  NEW
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+// PayMongo payment processing enums
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+  CANCELLED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum PaymentMethodType {
+  CARD
+  GCASH
+  PAYMAYA
+  GRABPAY
+  BANK_TRANSFER
+  OVER_THE_COUNTER
+  INSTALLMENT
+}
+
+enum RefundStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum PaymentLinkStatus {
+  ACTIVE
+  INACTIVE
+  EXPIRED
+  PAID
+}
+
+enum DisputeStatus {
+  UNDER_REVIEW
+  CHARGEBACK
+  WON
+  LOST
+  EXPIRED
+}
+
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+  BLOCKED
+}
+
+model Accommodation {
+  id               String            @id @default(uuid())
+  businessUnitId   String
+  businessUnit     BusinessUnit      @relation(fields: [businessUnitId], references: [id], onDelete: Cascade)
+  name             String
+  type             AccommodationType
+  description      String?
+  shortDescription String?
+  capacity         Int
+  bedrooms         Int?
+  bathrooms        Int?
+  area             String? // e.g., "120 sqm"
+  pricePerNight    Decimal           @db.Decimal(10, 2)
+  imageUrl         String?
+  gallery          String[] // Array of image URLs
+  amenities        String[] // Array of amenity names
+  isActive         Boolean           @default(true)
+  sortOrder        Int               @default(0)
+  bookings         Booking[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  createdById      String?
+  createdBy        User?             @relation("AccommodationCreatedBy", fields: [createdById], references: [id])
+
+  // Hotel management relations
+  rooms     Room[]
+  roomRates RoomRate[]
+
+  @@index([businessUnitId, type])
+}
+
+model Activity {
+  id               String        @id @default(uuid())
+  businessUnitId   String?
+  businessUnit     BusinessUnit? @relation(fields: [businessUnitId], references: [id], onDelete: SetNull)
+  name             String
+  type             ActivityType
+  description      String?
+  shortDescription String?
+  duration         String? // e.g., "2 hours", "Half day"
+  price            Decimal?      @db.Decimal(10, 2)
+  imageUrl         String?
+  gallery          String[] // Array of image URLs
+  isActive         Boolean       @default(true)
+  sortOrder        Int           @default(0)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  createdById      String?
+  createdBy        User?         @relation("ActivityCreatedBy", fields: [createdById], references: [id])
+
+  @@index([type, isActive])
+}
+
+// Restaurants and Dining
+model Restaurant {
+  id               String        @id @default(uuid())
+  businessUnitId   String?
+  businessUnit     BusinessUnit? @relation(fields: [businessUnitId], references: [id], onDelete: SetNull)
+  name             String
+  description      String?
+  shortDescription String?
+  cuisine          String? // e.g., "Italian", "Asian Fusion"
+  openingHours     String?
+  priceRange       String? // e.g., "$$$", "Fine Dining"
+  imageUrl         String?
+  gallery          String[] // Array of image URLs
+  isActive         Boolean       @default(true)
+  sortOrder        Int           @default(0)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  createdById      String?
+  createdBy        User?         @relation("RestaurantCreatedBy", fields: [createdById], references: [id])
+
+  @@index([businessUnitId, isActive])
+}
+
+// Events and Special Occasions
+model Event {
+  id               String        @id @default(uuid())
+  businessUnitId   String?
+  businessUnit     BusinessUnit? @relation(fields: [businessUnitId], references: [id], onDelete: SetNull)
+  title            String
+  description      String?
+  shortDescription String?
+  eventDate        DateTime?
+  startTime        String?
+  endTime          String?
+  location         String?
+  price            Decimal?      @db.Decimal(10, 2)
+  capacity         Int?
+  imageUrl         String?
+  gallery          String[] // Array of image URLs
+  isActive         Boolean       @default(true)
+  isFeatured       Boolean       @default(false)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  createdById      String?
+  createdBy        User?         @relation("EventCreatedBy", fields: [createdById], references: [id])
+
+  @@index([eventDate, isActive])
+}
+
+// Gallery Images
+model GalleryImage {
+  id          String   @id @default(uuid())
+  title       String?
+  description String?
+  imageUrl    String
+  category    String? // e.g., "accommodations", "activities", "dining", "resort"
+  tags        String[] // Array of tags for filtering
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  createdBy   User?    @relation("GalleryImageCreatedBy", fields: [createdById], references: [id])
+
+  @@index([category, isActive])
+}
+
+// Bookings and Reservations
+// Bookings and Reservations
+model Booking {
+  id              String           @id @default(uuid())
+  businessUnitId  String
+  businessUnit    BusinessUnit     @relation(fields: [businessUnitId], references: [id])
+  accommodationId String
+  accommodation   Accommodation    @relation(fields: [accommodationId], references: [id])
+  guestName       String
+  guestEmail      String
+  guestPhone      String?
+  checkInDate     DateTime
+  checkOutDate    DateTime
+  adults          Int              @default(1)
+  children        Int              @default(0)
+  totalAmount     Decimal          @db.Decimal(10, 2)
+  status          BookingStatus    @default(PENDING)
+  paymentStatus   PaymentStatus    @default(PENDING)
+  specialRequests String?
+  notes           String?
+  payments        BookingPayment[]
+  paymentLinks    PaymentLink[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  createdById     String?
+  createdBy       User?            @relation("BookingCreatedBy", fields: [createdById], references: [id])
+  // Hotel management relations
+  roomBooking     RoomBooking?
+
+  @@index([businessUnitId, checkInDate])
+  @@index([status, createdAt])
+  @@index([paymentStatus])
+}
+
+// Contact Inquiries
+model ContactInquiry {
+  id          String        @id @default(uuid())
+  name        String
+  email       String
+  phone       String?
+  subject     String?
+  message     String
+  status      InquiryStatus @default(NEW)
+  response    String?
+  respondedAt DateTime?
+  respondedBy String?
+  responder   User?         @relation("InquiryResponder", fields: [respondedBy], references: [id])
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([status, createdAt])
+}
+
+// Testimonials and Reviews
+model Testimonial {
+  id          String   @id @default(uuid())
+  guestName   String
+  guestTitle  String? // e.g., "Honeymooner", "Family Vacation"
+  content     String
+  rating      Int? // 1-5 stars
+  imageUrl    String? // Guest photo
+  isActive    Boolean  @default(true)
+  isFeatured  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  createdBy   User?    @relation("TestimonialCreatedBy", fields: [createdById], references: [id])
+
+  @@index([isActive, isFeatured])
+}
+
+// Website Content Management
+model WebsiteContent {
+  id          String   @id @default(uuid())
+  section     String // e.g., "hero", "about", "footer"
+  key         String // e.g., "title", "description", "image"
+  value       String // The actual content
+  type        String   @default("text") // "text", "html", "image", "json"
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  createdBy   User?    @relation("WebsiteContentCreatedBy", fields: [createdById], references: [id])
+
+  @@unique([section, key])
+  @@index([section, isActive])
+}
+
+// Staff and Team Members
+model TeamMember {
+  id          String   @id @default(uuid())
+  name        String
+  position    String
+  department  String?
+  bio         String?
+  imageUrl    String?
+  email       String?
+  phone       String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  createdBy   User?    @relation("TeamMemberCreatedBy", fields: [createdById], references: [id])
+
+  @@index([department, isActive])
+}
+
+// Amenities and Facilities
+model Amenity {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  icon        String? // Icon name or URL
+  category    String? // e.g., "room", "resort", "wellness"
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  createdBy   User?    @relation("AmenityCreatedBy", fields: [createdById], references: [id])
+
+  @@index([category, isActive])
+}
+
+// PayMongo Payment Processing Models
+model BookingPayment {
+  id        String  @id @default(uuid())
+  bookingId String
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  // PayMongo specific fields
+  paymongoPaymentId String? @unique // PayMongo payment intent ID
+  paymongoSourceId  String? // PayMongo source ID
+  paymongoWebhookId String? // PayMongo webhook ID
+
+  amount            Decimal            @db.Decimal(10, 2)
+  currency          String             @default("PHP")
+  status            PaymentStatus      @default(PENDING)
+  paymentMethodType PaymentMethodType?
+
+  // Payment method details (encrypted/tokenized)
+  paymentMethodDetails Json? // Store PayMongo payment method details
+
+  // Transaction details
+  processingFee Decimal? @db.Decimal(10, 2)
+  netAmount     Decimal? @db.Decimal(10, 2)
+
+  // Installment details
+  installmentTerms  Int? // Number of installments
+  installmentAmount Decimal? @db.Decimal(10, 2)
+
+  // PayMongo response data
+  paymongoResponse Json? // Store full PayMongo API response
+  failureReason    String?
+  checkoutUrl      String?
+
+  // Timestamps
+  paidAt      DateTime?
+  failedAt    DateTime?
+  cancelledAt DateTime?
+
+  // Relations
+  refunds      PaymentRefund[]
+  webhooks     PaymentWebhook[]
+  installments PaymentInstallment[]
+  disputes     PaymentDispute[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  createdBy   User?    @relation("BookingPaymentCreatedBy", fields: [createdById], references: [id])
+
+  @@index([bookingId])
+  @@index([status, createdAt])
+  @@index([paymongoPaymentId])
+}
+
+model PaymentRefund {
+  id               String         @id @default(uuid())
+  bookingPaymentId String
+  bookingPayment   BookingPayment @relation(fields: [bookingPaymentId], references: [id], onDelete: Cascade)
+
+  // PayMongo refund details
+  paymongoRefundId String?      @unique
+  amount           Decimal      @db.Decimal(10, 2)
+  reason           String?
+  status           RefundStatus @default(PENDING)
+
+  // PayMongo response
+  paymongoResponse Json?
+  failureReason    String?
+
+  // Timestamps
+  processedAt DateTime?
+  completedAt DateTime?
+  failedAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdById String?
+  createdBy   User?   @relation("PaymentRefundCreatedBy", fields: [createdById], references: [id])
+
+  @@index([bookingPaymentId])
+  @@index([status, createdAt])
+}
+
+model PaymentWebhook {
+  id               String          @id @default(uuid())
+  bookingPaymentId String?
+  bookingPayment   BookingPayment? @relation(fields: [bookingPaymentId], references: [id], onDelete: SetNull)
+
+  // Webhook details
+  paymongoEventId String    @unique
+  eventType       String // e.g., "payment.paid", "payment.failed"
+  webhookData     Json // Full webhook payload
+  processed       Boolean   @default(false)
+  processedAt     DateTime?
+
+  // Error handling
+  processingError String?
+  retryCount      Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([eventType, processed])
+  @@index([createdAt])
+}
+
+model PaymentLink {
+  id        String   @id @default(uuid())
+  bookingId String?
+  booking   Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  // PayMongo payment link details
+  paymongoLinkId String            @unique
+  linkUrl        String
+  amount         Decimal           @db.Decimal(10, 2)
+  currency       String            @default("PHP")
+  description    String?
+  status         PaymentLinkStatus @default(ACTIVE)
+
+  // Expiration
+  expiresAt DateTime?
+
+  // Payment details when paid
+  paidAt    DateTime?
+  paymentId String? // PayMongo payment ID when paid
+
+  // PayMongo response
+  paymongoResponse Json?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  createdBy   User?    @relation("PaymentLinkCreatedBy", fields: [createdById], references: [id])
+
+  @@index([status, expiresAt])
+  @@index([paymongoLinkId])
+}
+
+model PaymentCustomer {
+  id     String  @id @default(uuid())
+  userId String? @unique
+  user   User?   @relation("UserPaymentProfile", fields: [userId], references: [id], onDelete: SetNull)
+
+  // PayMongo customer details
+  paymongoCustomerId String  @unique
+  email              String
+  firstName          String?
+  lastName           String?
+  phone              String?
+
+  // Customer status
+  status CustomerStatus @default(ACTIVE)
+
+  // Default payment method
+  defaultPaymentMethod Json? // Tokenized payment method details
+
+  // PayMongo response
+  paymongoResponse Json?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  createdBy   User?    @relation("PaymentCustomerCreatedBy", fields: [createdById], references: [id])
+
+  @@index([email])
+  @@index([paymongoCustomerId])
+}
+
+model PaymentDispute {
+  id               String         @id @default(uuid())
+  bookingPaymentId String
+  bookingPayment   BookingPayment @relation(fields: [bookingPaymentId], references: [id], onDelete: Cascade)
+
+  // PayMongo dispute details
+  paymongoDisputeId String        @unique
+  amount            Decimal       @db.Decimal(10, 2)
+  currency          String        @default("PHP")
+  reason            String?
+  status            DisputeStatus @default(UNDER_REVIEW)
+
+  // Evidence and responses
+  evidence Json? // Evidence submitted
+  response String? // Response to dispute
+
+  // Important dates
+  evidenceDueDate DateTime?
+  respondedAt     DateTime?
+  resolvedAt      DateTime?
+
+  // PayMongo response
+  paymongoResponse Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, evidenceDueDate])
+  @@index([paymongoDisputeId])
+}
+
+model PaymentInstallment {
+  id               String         @id @default(uuid())
+  bookingPaymentId String
+  bookingPayment   BookingPayment @relation(fields: [bookingPaymentId], references: [id], onDelete: Cascade)
+
+  // Installment details
+  installmentNumber Int // 1, 2, 3, etc.
+  amount            Decimal       @db.Decimal(10, 2)
+  dueDate           DateTime
+  status            PaymentStatus @default(PENDING)
+
+  // PayMongo installment details
+  paymongoInstallmentId String?   @unique
+  paidAt                DateTime?
+
+  // PayMongo response
+  paymongoResponse Json?
+  failureReason    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([bookingPaymentId, installmentNumber])
+  @@index([status, dueDate])
+}
+
+// Additional Enums for Hotel Management
+enum RoomStatus {
+  AVAILABLE
+  OCCUPIED
+  OUT_OF_ORDER
+  MAINTENANCE
+  CLEANING
+  RESERVED
+}
+
+enum HousekeepingStatus {
+  CLEAN
+  DIRTY
+  INSPECTED
+  OUT_OF_ORDER
+  MAINTENANCE_REQUIRED
+}
+
+enum GuestStatus {
+  RESERVED
+  CHECKED_IN
+  CHECKED_OUT
+  NO_SHOW
+  CANCELLED
+  IN_HOUSE
+}
+
+enum ServiceRequestStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ServiceRequestPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum MaintenanceStatus {
+  REPORTED
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum MaintenancePriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ShiftType {
+  MORNING
+  AFTERNOON
+  EVENING
+  NIGHT
+  FULL_DAY
+}
+
+enum StaffDepartment {
+  FRONT_DESK
+  HOUSEKEEPING
+  MAINTENANCE
+  FOOD_BEVERAGE
+  SECURITY
+  MANAGEMENT
+  CONCIERGE
+  SPA_WELLNESS
+}
+
+model Room {
+  id                 String             @id @default(uuid())
+  businessUnitId     String
+  businessUnit       BusinessUnit       @relation(fields: [businessUnitId], references: [id], onDelete: Cascade)
+  accommodationId    String
+  accommodation      Accommodation      @relation(fields: [accommodationId], references: [id])
+  roomNumber         String
+  floor              Int?
+  wing               String? // e.g., "North Wing", "Ocean View"
+  status             RoomStatus         @default(AVAILABLE)
+  housekeepingStatus HousekeepingStatus @default(CLEAN)
+  lastCleaned        DateTime?
+  lastInspected      DateTime?
+  notes              String?
+
+  // Room features
+  hasBalcony     Boolean @default(false)
+  hasOceanView   Boolean @default(false)
+  hasKitchenette Boolean @default(false)
+  smokingAllowed Boolean @default(false)
+  petFriendly    Boolean @default(false)
+
+  // Relations
+  bookings            RoomBooking[]
+  housekeepingTasks   HousekeepingTask[]
+  maintenanceRequests MaintenanceRequest[]
+  serviceRequests     ServiceRequest[]
+  guestStays          GuestStay[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  createdBy   User?    @relation("RoomCreatedBy", fields: [createdById], references: [id])
+
+  @@unique([businessUnitId, roomNumber])
+  @@index([businessUnitId, status])
+  @@index([accommodationId, status])
+}
+
+// Enhanced Guest Management
+model Guest {
+  id             String       @id @default(uuid())
+  businessUnitId String
+  businessUnit   BusinessUnit @relation(fields: [businessUnitId], references: [id])
+
+  // Personal Information
+  firstName      String
+  lastName       String
+  email          String
+  phone          String?
+  dateOfBirth    DateTime?
+  nationality    String?
+  passportNumber String?
+  idNumber       String? // National ID or driver's license
+
+  // Address
+  address    String?
+  city       String?
+  state      String?
+  country    String?
+  postalCode String?
+
+  // Preferences
+  preferences     Json? // Dietary, room preferences, etc.
+  specialRequests String?
+  vipStatus       Boolean @default(false)
+  loyaltyNumber   String?
+
+  // Relations
+  stays           GuestStay[]
+  bookings        RoomBooking[]
+  serviceRequests ServiceRequest[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  createdBy   User?    @relation("GuestCreatedBy", fields: [createdById], references: [id])
+
+  @@unique([businessUnitId, email])
+  @@index([businessUnitId, lastName, firstName])
+}
+
+// Room Booking (extends existing Booking)
+model RoomBooking {
+  id        String  @id @default(uuid())
+  bookingId String  @unique
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  roomId    String
+  room      Room    @relation(fields: [roomId], references: [id])
+  guestId   String
+  guest     Guest   @relation(fields: [guestId], references: [id])
+
+  // Booking details
+  checkInTime    DateTime?
+  checkOutTime   DateTime?
+  actualCheckIn  DateTime?
+  actualCheckOut DateTime?
+
+  // Rates and charges
+  roomRate     Decimal @db.Decimal(10, 2)
+  extraCharges Decimal @default(0) @db.Decimal(10, 2)
+  discounts    Decimal @default(0) @db.Decimal(10, 2)
+  taxes        Decimal @default(0) @db.Decimal(10, 2)
+
+  // Guest information
+  adults   Int @default(1)
+  children Int @default(0)
+  infants  Int @default(0)
+
+  status          GuestStatus @default(RESERVED)
+  specialRequests String?
+  notes           String?
+
+  // Relations
+  guestStay GuestStay?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([roomId, checkInTime])
+  @@index([guestId])
+}
+
+// Guest Stay (for checked-in guests)
+model GuestStay {
+  id            String      @id @default(uuid())
+  roomBookingId String      @unique
+  roomBooking   RoomBooking @relation(fields: [roomBookingId], references: [id], onDelete: Cascade)
+  roomId        String
+  room          Room        @relation(fields: [roomId], references: [id])
+  guestId       String
+  guest         Guest       @relation(fields: [guestId], references: [id])
+
+  checkInTime      DateTime
+  expectedCheckOut DateTime
+  actualCheckOut   DateTime?
+
+  // Key card information
+  keyCardNumber   String?
+  keyCardIssued   DateTime?
+  keyCardReturned DateTime?
+
+  // Charges and services
+  roomCharges    Decimal @default(0) @db.Decimal(10, 2)
+  serviceCharges Decimal @default(0) @db.Decimal(10, 2)
+  totalCharges   Decimal @default(0) @db.Decimal(10, 2)
+
+  status GuestStatus @default(CHECKED_IN)
+  notes  String?
+
+  // Relations
+  serviceRequests ServiceRequest[]
+  charges         GuestCharge[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([roomId, status])
+  @@index([guestId, status])
+}
+
+// Guest Charges (room service, minibar, etc.)
+model GuestCharge {
+  id          String    @id @default(uuid())
+  guestStayId String
+  guestStay   GuestStay @relation(fields: [guestStayId], references: [id], onDelete: Cascade)
+
+  description String
+  amount      Decimal @db.Decimal(10, 2)
+  quantity    Int     @default(1)
+  unitPrice   Decimal @db.Decimal(10, 2)
+
+  // Service details
+  serviceDate DateTime @default(now())
+  department  String? // "Room Service", "Minibar", "Spa", etc.
+  reference   String? // Order number, receipt number, etc.
+
+  // Billing
+  posted   Boolean   @default(false)
+  postedAt DateTime?
+
+  createdAt   DateTime @default(now())
+  createdById String?
+  createdBy   User?    @relation("GuestChargeCreatedBy", fields: [createdById], references: [id])
+
+  @@index([guestStayId, serviceDate])
+}
+
+// Housekeeping Management
+model HousekeepingTask {
+  id           String      @id @default(uuid())
+  roomId       String
+  room         Room        @relation(fields: [roomId], references: [id])
+  assignedToId String?
+  assignedTo   HotelStaff? @relation(fields: [assignedToId], references: [id])
+
+  taskType String // "Cleaning", "Inspection", "Maintenance"
+  priority ServiceRequestPriority @default(MEDIUM)
+  status   ServiceRequestStatus   @default(PENDING)
+
+  description   String?
+  instructions  String?
+  estimatedTime Int? // Minutes
+  actualTime    Int? // Minutes
+
+  scheduledFor DateTime?
+  startedAt    DateTime?
+  completedAt  DateTime?
+
+  // Checklist items
+  checklist Json? // Array of checklist items with completion status
+  notes     String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  createdBy   User?    @relation("HousekeepingTaskCreatedBy", fields: [createdById], references: [id])
+
+  @@index([roomId, status])
+  @@index([assignedToId, scheduledFor])
+}
+
+// Service Requests (guest requests)
+model ServiceRequest {
+  id          String     @id @default(uuid())
+  guestStayId String?
+  guestStay   GuestStay? @relation(fields: [guestStayId], references: [id])
+  roomId      String?
+  room        Room?      @relation(fields: [roomId], references: [id])
+  guestId     String?
+  guest       Guest?     @relation(fields: [guestId], references: [id])
+
+  requestType String // "Room Service", "Housekeeping", "Maintenance", "Concierge"
+  title       String
+  description String
+  priority    ServiceRequestPriority @default(MEDIUM)
+  status      ServiceRequestStatus   @default(PENDING)
+
+  assignedToId String?
+  assignedTo   HotelStaff? @relation(fields: [assignedToId], references: [id])
+
+  requestedAt  DateTime  @default(now())
+  scheduledFor DateTime?
+  startedAt    DateTime?
+  completedAt  DateTime?
+
+  estimatedCost Decimal? @db.Decimal(10, 2)
+  actualCost    Decimal? @db.Decimal(10, 2)
+
+  notes      String?
+  guestNotes String? // Notes from guest
+  staffNotes String? // Internal staff notes
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  createdBy   User?    @relation("ServiceRequestCreatedBy", fields: [createdById], references: [id])
+
+  @@index([status, priority])
+  @@index([assignedToId, scheduledFor])
+  @@index([roomId, status])
+}
+
+// Maintenance Management
+model MaintenanceRequest {
+  id     String  @id @default(uuid())
+  roomId String?
+  room   Room?   @relation(fields: [roomId], references: [id])
+
+  title       String
+  description String
+  category    String // "Plumbing", "Electrical", "HVAC", "Furniture", etc.
+  priority    MaintenancePriority @default(MEDIUM)
+  status      MaintenanceStatus   @default(REPORTED)
+
+  reportedById String
+  reportedBy   User        @relation("MaintenanceReportedBy", fields: [reportedById], references: [id])
+  assignedToId String?
+  assignedTo   HotelStaff? @relation(fields: [assignedToId], references: [id])
+
+  reportedAt   DateTime  @default(now())
+  scheduledFor DateTime?
+  startedAt    DateTime?
+  completedAt  DateTime?
+
+  estimatedCost Decimal? @db.Decimal(10, 2)
+  actualCost    Decimal? @db.Decimal(10, 2)
+
+  // Parts and materials
+  partsUsed  Json? // Array of parts/materials used
+  laborHours Decimal? @db.Decimal(5, 2)
+
+  notes      String?
+  resolution String?
+
+  // Follow-up
+  followUpRequired Boolean   @default(false)
+  followUpDate     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, priority])
+  @@index([assignedToId, scheduledFor])
+  @@index([roomId, status])
+}
+
+// Hotel Staff Management
+model HotelStaff {
+  id             String       @id @default(uuid())
+  userId         String?      @unique
+  user           User?        @relation("HotelStaffUser", fields: [userId], references: [id])
+  businessUnitId String
+  businessUnit   BusinessUnit @relation(fields: [businessUnitId], references: [id])
+
+  employeeId String  @unique
+  firstName  String
+  lastName   String
+  email      String?
+  phone      String?
+
+  department StaffDepartment
+  position   String
+  supervisor String?
+
+  // Employment details
+  hireDate        DateTime
+  terminationDate DateTime?
+  isActive        Boolean   @default(true)
+
+  // Scheduling
+  defaultShift ShiftType?
+  hourlyRate   Decimal?   @db.Decimal(8, 2)
+
+  // Permissions and access
+  canAccessRooms     Boolean @default(false)
+  canViewGuests      Boolean @default(false)
+  canProcessPayments Boolean @default(false)
+
+  // Relations
+  housekeepingTasks   HousekeepingTask[]
+  serviceRequests     ServiceRequest[]
+  maintenanceRequests MaintenanceRequest[]
+  schedules           StaffSchedule[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  createdBy   User?    @relation("HotelStaffCreatedBy", fields: [createdById], references: [id])
+
+  @@unique([businessUnitId, employeeId])
+  @@index([businessUnitId, department])
+}
+
+// Staff Scheduling
+model StaffSchedule {
+  id      String     @id @default(uuid())
+  staffId String
+  staff   HotelStaff @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  date      DateTime
+  shiftType ShiftType
+  startTime DateTime
+  endTime   DateTime
+
+  // Break times
+  breakStart DateTime?
+  breakEnd   DateTime?
+
+  // Actual times (for time tracking)
+  actualStart DateTime?
+  actualEnd   DateTime?
+
+  // Hours and pay
+  scheduledHours Decimal  @db.Decimal(5, 2)
+  actualHours    Decimal? @db.Decimal(5, 2)
+  overtimeHours  Decimal? @db.Decimal(5, 2)
+
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([staffId, date, shiftType])
+  @@index([staffId, date])
+}
+
+// Rate Management
+model RoomRate {
+  id              String        @id @default(uuid())
+  accommodationId String
+  accommodation   Accommodation @relation(fields: [accommodationId], references: [id])
+
+  name        String // "Standard Rate", "Weekend Rate", "Holiday Rate"
+  description String?
+
+  // Rate details
+  baseRate Decimal @db.Decimal(10, 2)
+  currency String  @default("PHP")
+
+  // Date range
+  validFrom DateTime
+  validTo   DateTime
+
+  // Day of week restrictions
+  monday    Boolean @default(true)
+  tuesday   Boolean @default(true)
+  wednesday Boolean @default(true)
+  thursday  Boolean @default(true)
+  friday    Boolean @default(true)
+  saturday  Boolean @default(true)
+  sunday    Boolean @default(true)
+
+  // Booking restrictions
+  minStay        Int  @default(1)
+  maxStay        Int?
+  advanceBooking Int? // Days in advance required
+
+  // Occupancy-based rates
+  singleRate      Decimal? @db.Decimal(10, 2)
+  doubleRate      Decimal? @db.Decimal(10, 2)
+  extraPersonRate Decimal? @db.Decimal(10, 2)
+  childRate       Decimal? @db.Decimal(10, 2)
+
+  isActive Boolean @default(true)
+  priority Int     @default(0) // Higher priority rates take precedence
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  createdBy   User?    @relation("RoomRateCreatedBy", fields: [createdById], references: [id])
+
+  @@index([accommodationId, validFrom, validTo])
+  @@index([isActive, priority])
+}
+
+// Hotel Services (Spa, Laundry, etc.)
+model HotelService {
+  id             String       @id @default(uuid())
+  businessUnitId String
+  businessUnit   BusinessUnit @relation(fields: [businessUnitId], references: [id])
+
+  name        String
+  description String?
+  category    String // "Spa", "Laundry", "Transportation", "Dining"
+
+  // Pricing
+  basePrice Decimal @db.Decimal(10, 2)
+  currency  String  @default("PHP")
+
+  // Availability
+  isActive       Boolean @default(true)
+  availableHours Json? // Operating hours by day of week
+
+  // Booking requirements
+  requiresBooking    Boolean @default(false)
+  maxAdvanceBooking  Int? // Days
+  cancellationPolicy String?
+
+  // Service details
+  duration Int? // Minutes
+  capacity Int? // Max people at once
+  location String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  createdBy   User?    @relation("HotelServiceCreatedBy", fields: [createdById], references: [id])
+
+  @@unique([businessUnitId, name])
+  @@index([businessUnitId, category, isActive])
+}

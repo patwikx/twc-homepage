@@ -3,8 +3,26 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ChevronRight, Calendar } from "lucide-react"
+import { ChevronRight, Calendar, Loader2 } from "lucide-react"
 import { useScrollAnimation } from "@/hooks/use-scroll-animation"
+import { useState, useEffect } from "react"
+import axios from "axios"
+
+interface Room {
+  id: string
+  roomNumber: string
+  roomType: {
+    name: string
+    basePrice: number
+  }
+  status: string
+  isAvailable: boolean
+}
+
+interface BusinessUnit {
+  id: string
+  name: string
+}
 
 export default function HeroSection() {
   const { ref, isVisible } = useScrollAnimation<HTMLElement>({ threshold: 0.3 })
@@ -30,11 +48,11 @@ export default function HeroSection() {
           }`}
         >
           <h1
-            className={`text-4xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight transition-all duration-1200 ease-out delay-200 ${
+            className={`text-4xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight whitespace-nowrap transition-all duration-1200 ease-out delay-200 ${
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12"
             }`}
           >
-            Paradise Awaits in
+            Paradise Awaits in 
             <span className="block text-accent">General Santos City</span>
           </h1>
           <p
@@ -68,77 +86,6 @@ export default function HeroSection() {
         </div>
 
         <div className="flex justify-center lg:justify-end">
-          <Card
-            ref={formRef}
-            className={`bg-card/95 backdrop-blur-sm p-6 lg:p-8 w-full max-w-md transition-all duration-1000 ease-out ${
-              formVisible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-8"
-            }`}
-          >
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-3 bg-primary/10 rounded-full">
-                <Calendar className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="text-2xl font-bold text-card-foreground">Quick Booking</h3>
-            </div>
-            <form className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-card-foreground mb-2">Check-in</label>
-                  <Input type="date" className="bg-background" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-card-foreground mb-2">Check-out</label>
-                  <Input type="date" className="bg-background" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-card-foreground mb-2">Resort</label>
-                  <Select>
-                    <SelectTrigger className="bg-background">
-                      <SelectValue placeholder="Select resort" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="anchor">Anchor Hotel</SelectItem>
-                      <SelectItem value="farm">Dolores Farm Resort</SelectItem>
-                      <SelectItem value="tropicana">Dolores Tropicana Resort</SelectItem>
-                      <SelectItem value="lake">Dolores Lake Resort</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-card-foreground mb-2">Guests</label>
-                  <Select>
-                    <SelectTrigger className="bg-background">
-                      <SelectValue placeholder="Guests" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1">1 Guest</SelectItem>
-                      <SelectItem value="2">2 Guests</SelectItem>
-                      <SelectItem value="3">3 Guests</SelectItem>
-                      <SelectItem value="4">4 Guests</SelectItem>
-                      <SelectItem value="5+">5+ Guests</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-card-foreground mb-2">Full Name</label>
-                <Input placeholder="Enter your full name" className="bg-background" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-card-foreground mb-2">Email Address</label>
-                <Input type="email" placeholder="Enter your email" className="bg-background" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-card-foreground mb-2">Phone Number</label>
-                <Input type="tel" placeholder="Enter your phone number" className="bg-background" />
-              </div>
-              <Button className="w-full bg-primary hover:bg-primary/90 text-lg py-3 transform hover:scale-105 transition-transform duration-200">
-                Check Availability & Book
-              </Button>
-            </form>
-          </Card>
         </div>
       </div>
 

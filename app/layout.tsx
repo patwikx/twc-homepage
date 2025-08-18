@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import { DM_Sans } from "next/font/google"
 import "./globals.css"
+import Navigation from "@/components/homepage/navigation"
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -23,7 +24,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${dmSans.variable} antialiased`}>
-      <body>{children}</body>
+      <body>
+            <Navigation />
+        {children}
+        </body>
     </html>
   )
 }

@@ -12,7 +12,6 @@ import ResortOverview from "@/components/homepage/resort-overview";
 export default function HomePage() {
   return (
     <main className="min-h-screen">
-      <Navigation />
       <HeroSection />
       <ResortOverview />
       <AccommodationsShowcase />

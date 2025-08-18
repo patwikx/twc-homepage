@@ -4,65 +4,8 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Clock, MapPin, Star, Utensils, Coffee, Wine, ChefHat } from "lucide-react"
 import { useScrollAnimation } from "@/hooks/use-scroll-animation"
-
-const restaurants = [
-  {
-    name: "Cafe Rodrigo",
-    type: "Signature Restaurant",
-    location: "All Locations",
-    cuisine: "Filipino-International Fusion",
-    rating: 4.9,
-    image: "https://images.pexels.com/photos/239975/pexels-photo-239975.jpeg",
-    description:
-      "Our flagship restaurant offering exquisite Filipino-international cuisine with local South Cotabato influences. Experience culinary artistry celebrating Filipino flavors in an elegant atmosphere.",
-    specialties: ["Filipino Fusion", "Fresh Tuna", "Organic Ingredients", "Local Wine Pairing"],
-    hours: "6:00 AM - 11:00 PM",
-    priceRange: "PHP PHP PHP",
-    features: ["Chef's Table", "Private Dining", "Wine Cellar", "Outdoor Terrace"],
-  },
-  {
-    name: "Sarangani Grill",
-    type: "Casual Dining",
-    location: "Dolores Tropicana Resort",
-    cuisine: "Grilled Specialties",
-    rating: 4.7,
-    image: "https://images.pexels.com/photos/14389434/pexels-photo-14389434.jpeg",
-    description:
-      "Casual beachfront dining with fresh grilled seafood from Sarangani Bay and tropical cocktails. Perfect for sunset dinners by the ocean in General Santos.",
-    specialties: ["Grilled Tuna", "BBQ Platters", "Tropical Cocktails", "Bay Views"],
-    hours: "11:00 AM - 10:00 PM",
-    priceRange: "PHP PHP",
-    features: ["Ocean View", "Live Music", "Cocktail Bar", "Beach Access"],
-  },
-  {
-    name: "Farm Table",
-    type: "Farm-to-Table",
-    location: "Dolores Farm Resort",
-    cuisine: "Organic Filipino",
-    rating: 4.8,
-    image: "https://images.pexels.com/photos/29913267/pexels-photo-29913267.jpeg",
-    description:
-      "Authentic farm-to-table experience featuring organic produce grown on-site in South Cotabato. Taste the freshness of Filipino countryside dining.",
-    specialties: ["Organic Vegetables", "Farm-Fresh Eggs", "Artisan Bread", "Local Dairy"],
-    hours: "7:00 AM - 9:00 PM",
-    priceRange: "PHP PHP",
-    features: ["Garden Views", "Cooking Classes", "Farm Tours", "Organic Menu"],
-  },
-  {
-    name: "Lakeside Bistro",
-    type: "Fine Dining",
-    location: "Dolores Lake Resort",
-    cuisine: "Contemporary Filipino",
-    rating: 4.6,
-    image: "https://images.pexels.com/photos/31029412/pexels-photo-31029412.jpeg",
-    description:
-      "Sophisticated lakeside dining with contemporary Filipino cuisine and stunning mountain views. Perfect for romantic evenings in South Cotabato.",
-    specialties: ["Fresh Lake Fish", "Mountain Game", "Seasonal Menu", "Filipino Wine Selection"],
-    hours: "5:00 PM - 10:00 PM",
-    priceRange: "PHP PHP PHP",
-    features: ["Lake Views", "Romantic Setting", "Seasonal Menu", "Wine Pairing"],
-  },
-]
+import { useRestaurants } from "@/hooks/use-api-data"
+import { LoadingSection, ErrorSection } from "@/components/ui/loading-spinner"
 
 const diningExperiences = [
   {
@@ -97,6 +40,28 @@ export default function DiningSection() {
   const { ref: restaurantsRef, isVisible: restaurantsVisible } = useScrollAnimation<HTMLDivElement>({ threshold: 0.1 })
   const { ref: experiencesRef, isVisible: experiencesVisible } = useScrollAnimation<HTMLDivElement>({ threshold: 0.1 })
 
+  const { data: restaurants, loading, error, refetch } = useRestaurants()
+
+  if (loading) {
+    return <LoadingSection title="Culinary Excellence" description="Loading our dining experiences..." />
+  }
+
+  if (error) {
+    return <ErrorSection title="Unable to load restaurants" message={error} onRetry={refetch} />
+  }
+
+  if (!restaurants || restaurants.length === 0) {
+    return (
+      <ErrorSection
+        title="No restaurants found"
+        message="We're currently updating our dining options. Please check back soon."
+      />
+    )
+  }
+
+  const featuredRestaurant = restaurants.find((r) => r.type === "Signature Restaurant") || restaurants[0]
+  const otherRestaurants = restaurants.filter((r) => r.id !== featuredRestaurant.id)
+
   return (
     <section id="dining" className="py-20 bg-muted/30">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -108,13 +73,13 @@ export default function DiningSection() {
         >
           <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-4">Culinary Excellence</h2>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-            Savor exceptional dining experiences across our General Santos City resorts, from our signature Cafe Rodrigo
+            Savor exceptional dining experiences across our General Santos City resorts, from our signature restaurants
             to specialized Filipino cuisine that celebrates local South Cotabato flavors and international
             sophistication.
           </p>
         </div>
 
-        {/* Featured Restaurant - Cafe Rodrigo */}
+        {/* Featured Restaurant */}
         <div className="mb-16">
           <Card
             ref={featuredRef}
@@ -125,36 +90,36 @@ export default function DiningSection() {
             <div className="grid grid-cols-1 lg:grid-cols-2">
               <div className="relative h-96 lg:h-auto overflow-hidden">
                 <img
-                  src={restaurants[0].image || "/placeholder.svg"}
-                  alt={restaurants[0].name}
+                  src={featuredRestaurant.image || "/placeholder.svg"}
+                  alt={featuredRestaurant.name}
                   className="w-full h-full object-cover transition-transform duration-500 hover:scale-110"
                 />
                 <div className="absolute top-4 left-4">
-                  <Badge className="bg-primary text-primary-foreground text-sm">Signature Restaurant</Badge>
+                  <Badge className="bg-primary text-primary-foreground text-sm">{featuredRestaurant.type}</Badge>
                 </div>
               </div>
               <CardContent className="p-8 flex flex-col justify-center">
                 <div className="flex items-center gap-2 mb-3">
-                  <h3 className="text-3xl font-bold text-card-foreground">{restaurants[0].name}</h3>
+                  <h3 className="text-3xl font-bold text-card-foreground">{featuredRestaurant.name}</h3>
                   <div className="flex items-center gap-1">
                     <Star className="h-5 w-5 text-yellow-500 fill-current" />
-                    <span className="text-sm font-medium">{restaurants[0].rating}</span>
+                    <span className="text-sm font-medium">{featuredRestaurant.rating}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-4 mb-4 text-sm text-muted-foreground">
                   <div className="flex items-center gap-1">
                     <MapPin className="h-4 w-4" />
-                    {restaurants[0].location}
+                    {featuredRestaurant.location}
                   </div>
                   <div className="flex items-center gap-1">
                     <Clock className="h-4 w-4" />
-                    {restaurants[0].hours}
+                    {featuredRestaurant.hours}
                   </div>
-                  <span className="font-medium">{restaurants[0].priceRange}</span>
+                  <span className="font-medium">{featuredRestaurant.priceRange}</span>
                 </div>
-                <p className="text-muted-foreground mb-6">{restaurants[0].description}</p>
+                <p className="text-muted-foreground mb-6">{featuredRestaurant.description}</p>
                 <div className="flex flex-wrap gap-2 mb-6">
-                  {restaurants[0].specialties.map((specialty, idx) => (
+                  {featuredRestaurant.specialties.map((specialty, idx) => (
                     <span key={idx} className="bg-accent/10 text-accent px-3 py-1 rounded-full text-sm">
                       {specialty}
                     </span>
@@ -178,9 +143,9 @@ export default function DiningSection() {
 
         {/* Other Restaurants */}
         <div ref={restaurantsRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
-          {restaurants.slice(1).map((restaurant, index) => (
+          {otherRestaurants.map((restaurant, index) => (
             <Card
-              key={index}
+              key={restaurant.id}
               className={`overflow-hidden hover:shadow-xl transition-all duration-500 bg-card hover:scale-105 ${
                 restaurantsVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12"
               }`}

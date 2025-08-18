@@ -3,43 +3,33 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Phone, Mail, MapPin, Clock, MessageCircle } from "lucide-react"
 import { useScrollAnimation } from "@/hooks/use-scroll-animation"
-
-const contactInfo = [
-  {
-    resort: "Anchor Hotel",
-    address: "123 Pioneer Avenue, General Santos City, South Cotabato, Philippines",
-    phone: "+63 83 552-1234",
-    email: "anchor@tropicana.com.ph",
-    hours: "24/7 Front Desk",
-  },
-  {
-    resort: "Dolores Farm Resort",
-    address: "456 Barangay Dolores, General Santos City, South Cotabato, Philippines",
-    phone: "+63 83 552-2345",
-    email: "farm@tropicana.com.ph",
-    hours: "6:00 AM - 10:00 PM",
-  },
-  {
-    resort: "Dolores Tropicana Resort",
-    address: "789 Sarangani Bay Drive, General Santos City, South Cotabato, Philippines",
-    phone: "+63 83 552-3456",
-    email: "tropicana@tropicana.com.ph",
-    hours: "24/7 Front Desk",
-  },
-  {
-    resort: "Dolores Lake Resort",
-    address: "321 Lake Sebu Road, General Santos City, South Cotabato, Philippines",
-    phone: "+63 83 552-4567",
-    email: "lake@tropicana.com.ph",
-    hours: "7:00 AM - 11:00 PM",
-  },
-]
+import { useContactInfo } from "@/hooks/use-api-data"
+import { LoadingSection, ErrorSection } from "@/components/ui/loading-spinner"
 
 export default function ContactSection() {
   const { ref: headerRef, isVisible: headerVisible } = useScrollAnimation<HTMLDivElement>({ threshold: 0.2 })
   const { ref: contactRef, isVisible: contactVisible } = useScrollAnimation<HTMLDivElement>({ threshold: 0.1 })
   const { ref: resortsRef, isVisible: resortsVisible } = useScrollAnimation<HTMLDivElement>({ threshold: 0.1 })
   const { ref: servicesRef, isVisible: servicesVisible } = useScrollAnimation<HTMLDivElement>({ threshold: 0.1 })
+
+  const { data: contactInfo, loading, error, refetch } = useContactInfo()
+
+  if (loading) {
+    return <LoadingSection title="Contact & Reservations" description="Loading contact information..." />
+  }
+
+  if (error) {
+    return <ErrorSection title="Unable to load contact information" message={error} onRetry={refetch} />
+  }
+
+  if (!contactInfo || contactInfo.length === 0) {
+    return (
+      <ErrorSection
+        title="No contact information found"
+        message="We're currently updating our contact details. Please check back soon."
+      />
+    )
+  }
 
   return (
     <section id="contact" className="py-20 bg-background">
@@ -106,7 +96,7 @@ export default function ContactSection() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {contactInfo.map((resort, index) => (
               <Card
-                key={index}
+                key={resort.id}
                 className={`bg-card p-6 hover:shadow-lg transition-all duration-500 hover:scale-105 ${
                   resortsVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
                 }`}
